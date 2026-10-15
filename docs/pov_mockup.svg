@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <radialGradient id="glowR" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ff2d2d" stop-opacity="0.9"/><stop offset="100%" stop-color="#ff2d2d" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowG" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#2ecc71" stop-opacity="0.9"/><stop offset="100%" stop-color="#2ecc71" stop-opacity="0"/></radialGradient>
+    <clipPath id="l"><rect x="20" y="40" width="450" height="480" rx="14"/></clipPath>
+    <clipPath id="r"><rect x="490" y="40" width="450" height="480" rx="14"/></clipPath>
+  </defs>
+  <rect width="960" height="560" fill="#f4f4f6"/>
+
+  <!-- ===== LEFT: strap clip, normal moment ===== -->
+  <text x="245" y="28" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">Backpack strap · nothing happening</text>
+  <g clip-path="url(#l)">
+    <rect x="20" y="40" width="450" height="480" fill="#a9c6df"/>
+    <rect x="20" y="250" width="450" height="270" fill="#6d6d6d"/>
+    <rect x="20" y="150" width="110" height="105" fill="#8a8f98"/>
+    <rect x="150" y="120" width="80" height="135" fill="#757a83"/>
+    <rect x="360" y="140" width="110" height="115" fill="#8a8f98"/>
+    <path d="M190 520 L235 255 L255 255 L300 520 Z" fill="#5a5a5a"/>
+    <path d="M243 290 L247 290 L250 340 L240 340 Z" fill="#ddd"/>
+    <path d="M238 380 L252 380 L258 440 L232 440 Z" fill="#ddd"/>
+    <!-- the strap + clip at the bottom-left edge of vision, blurry -->
+    <path d="M60 520 L95 430" stroke="#222" stroke-width="30" stroke-linecap="round" opacity="0.85"/>
+    <circle cx="86" cy="470" r="22" fill="#1e1e22" opacity="0.9"/>
+    <circle cx="86" cy="470" r="15" fill="none" stroke="#2c2c32" stroke-width="2"/>
+  </g>
+  <text x="245" y="540" font-size="11" fill="#333" text-anchor="middle">the clip is a dark blur at the bottom-left; you forget it's there</text>
+
+  <!-- ===== RIGHT: same view, car approaching from behind-left ===== -->
+  <text x="715" y="28" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">Car horn, behind-left · for ~1 second</text>
+  <g clip-path="url(#r)">
+    <rect x="490" y="40" width="450" height="480" fill="#a9c6df"/>
+    <rect x="490" y="250" width="450" height="270" fill="#6d6d6d"/>
+    <rect x="490" y="150" width="110" height="105" fill="#8a8f98"/>
+    <rect x="620" y="120" width="80" height="135" fill="#757a83"/>
+    <rect x="830" y="140" width="110" height="115" fill="#8a8f98"/>
+    <path d="M660 520 L705 255 L725 255 L770 520 Z" fill="#5a5a5a"/>
+    <path d="M713 290 L717 290 L720 340 L710 340 Z" fill="#ddd"/>
+    <path d="M708 380 L722 380 L728 440 L702 440 Z" fill="#ddd"/>
+    <path d="M530 520 L565 430" stroke="#222" stroke-width="30" stroke-linecap="round" opacity="0.85"/>
+    <!-- glow -->
+    <circle cx="556" cy="470" r="70" fill="url(#glowR)"/>
+    <circle cx="556" cy="470" r="22" fill="#1e1e22" opacity="0.9"/>
+    <circle cx="556" cy="470" r="15" fill="none" stroke="#2c2c32" stroke-width="2"/>
+    <circle cx="542" cy="478" r="4" fill="#ff2d2d"/>
+    <!-- watch tap hint -->
+    <g transform="translate(880 470)">
+      <rect x="-18" y="-24" width="36" height="48" rx="8" fill="#222"/>
+      <rect x="-13" y="-17" width="26" height="34" rx="4" fill="#111"/>
+      <circle r="6" fill="#ff2d2d"/>
+      <path d="M-30 -10 L-36 -16 M-30 10 L-36 16 M30 -10 L36 -16 M30 10 L36 16" stroke="#ff2d2d" stroke-width="2"/>
+    </g>
+  </g>
+  <text x="715" y="540" font-size="11" fill="#333" text-anchor="middle">red glow on the left side of the clip + one tap on the wrist → you look over your left shoulder</text>
+</svg>
