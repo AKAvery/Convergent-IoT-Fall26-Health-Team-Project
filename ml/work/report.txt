@@ -1,39 +1,56 @@
-window accuracy: 0.763
-clip accuracy:   0.926
+argmax clip accuracy: 0.938
 
               precision    recall  f1-score   support
 
        alarm      1.000     1.000     1.000         8
-   appliance      0.714     0.938     0.811        16
+   appliance      0.824     0.875     0.848        16
     baby_cry      0.800     1.000     0.889         8
     car_horn      0.800     1.000     0.889         8
          cat      1.000     0.875     0.933         8
-        clap      1.000     0.750     0.857         8
+        clap      0.875     0.875     0.875         8
          dog      0.889     1.000     0.941         8
-   footsteps      0.583     0.875     0.700         8
- glass_break      0.615     1.000     0.762         8
-       knock      0.875     0.875     0.875         8
-       other      0.971     0.842     0.902       120
+   footsteps      0.700     0.875     0.778         8
+ glass_break      0.727     1.000     0.842         8
+       knock      0.727     1.000     0.842         8
+       other      0.972     0.867     0.916       120
        siren      1.000     1.000     1.000         8
       speech      1.000     1.000     1.000       120
 
-    accuracy                          0.926       336
-   macro avg      0.865     0.935     0.889       336
-weighted avg      0.942     0.926     0.928       336
+    accuracy                          0.938       336
+   macro avg      0.870     0.951     0.904       336
+weighted avg      0.946     0.938     0.939       336
 
 
-confusion matrix (rows = true, cols = predicted)
+confusion matrix (argmax; rows = true, cols = predicted)
               alarm appli baby_ car_h   cat  clap   dog foots glass knock other siren speec
 alarm             8     0     0     0     0     0     0     0     0     0     0     0     0
-appliance         0    15     0     0     0     0     0     0     0     0     1     0     0
+appliance         0    14     0     0     0     0     0     0     0     0     2     0     0
 baby_cry          0     0     8     0     0     0     0     0     0     0     0     0     0
 car_horn          0     0     0     8     0     0     0     0     0     0     0     0     0
-cat               0     0     0     0     7     0     0     0     1     0     0     0     0
-clap              0     0     0     0     0     6     0     0     0     0     2     0     0
+cat               0     0     0     0     7     0     0     0     0     0     1     0     0
+clap              0     0     0     0     0     7     0     0     0     1     0     0     0
 dog               0     0     0     0     0     0     8     0     0     0     0     0     0
 footsteps         0     0     0     0     0     0     0     7     0     1     0     0     0
 glass_break       0     0     0     0     0     0     0     0     8     0     0     0     0
-knock             0     0     0     0     0     0     0     1     0     7     0     0     0
-other             0     6     2     2     0     0     1     4     4     0   101     0     0
+knock             0     0     0     0     0     0     0     0     0     8     0     0     0
+other             0     3     2     2     0     1     1     3     3     1   104     0     0
 siren             0     0     0     0     0     0     0     0     0     0     0     8     0
 speech            0     0     0     0     0     0     0     0     0     0     0     0   120
+
+per-class detection at calibrated thresholds (clip level, held-out test):
+class         thr  recall  precision  false+/clip
+alarm        0.28    1.00       1.00        0.000
+appliance    0.40    0.81       0.81        0.009
+baby_cry     0.42    1.00       0.89        0.003
+car_horn     0.24    1.00       0.62        0.015
+cat          0.34    0.62       1.00        0.000
+clap         0.28    0.88       0.88        0.003
+dog          0.28    1.00       0.89        0.003
+footsteps    0.50    0.50       0.80        0.003
+glass_break  0.24    1.00       0.89        0.003
+knock        0.26    1.00       0.53        0.021
+other        0.30    0.86       0.97        0.014
+siren        0.28    1.00       0.89        0.003
+speech       0.22    1.00       0.99        0.005
+
+overlap test (117 two-sound mixtures): at least one detected 0.95, both detected 0.30

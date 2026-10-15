@@ -27,7 +27,9 @@ WINDOW = 15600
 BUFFER_SECONDS = 1.0
 UPDATE_SECONDS = 0.25
 LOUDNESS_GATE_DB = -50
-MIN_CONFIDENCE = 0.5
+PERSIST_FRAMES = 2
+CLASS_PRIORITY = {"siren": 10, "alarm": 10, "glass_break": 8, "car_horn": 9, "baby_cry": 7,
+                  "knock": 5, "clap": 4, "dog": 3, "cat": 2, "appliance": 2, "speech": 2, "footsteps": 1}
 HISTORY = 12
 
 COLORS = {
@@ -49,8 +51,14 @@ class Classifier:
         self.h_in = self.head.get_input_details()[0]["index"]
         self.h_out = self.head.get_output_details()[0]["index"]
         self.names = json.loads((PI_DIR / "labels.json").read_text())
+        try:
+            t = json.loads((PI_DIR / "thresholds.json").read_text())
+            self.thr = np.array([t.get(n, 0.5) for n in self.names])
+        except FileNotFoundError:
+            self.thr = np.full(len(self.names), 0.5)
+        self.streak = {}
 
-    def classify(self, mono):
+    def probs(self, mono):
         mono = mono.astype(np.float32)
         peak = np.abs(mono).max()
         if peak > 0:
@@ -59,14 +67,26 @@ class Classifier:
             mono = np.pad(mono, (0, WINDOW - len(mono)))
         w = mono[-WINDOW:]
         self.embed.set_tensor(self.e_in, w[np.newaxis, :]); self.embed.invoke()
-        emb = self.embed.get_tensor(self.e_out)
-        self.head.set_tensor(self.h_in, emb); self.head.invoke()
-        p = self.head.get_tensor(self.h_out)[0]
-        order = np.argsort(p)[::-1]
-        return [(self.names[i], float(p[i])) for i in order[:3]]
+        self.head.set_tensor(self.h_in, self.embed.get_tensor(self.e_out)); self.head.invoke()
+        return self.head.get_tensor(self.h_out)[0]
+
+    def detect(self, mono, db):
+        """All classes over threshold, persisted PERSIST_FRAMES updates, scored by priority."""
+        p = self.probs(mono)
+        loud = min(1.0, max(0.2, (db + 50) / 30))
+        hits = []
+        for i, name in enumerate(self.names):
+            if name == "other" or p[i] < self.thr[i]:
+                self.streak[name] = 0; continue
+            self.streak[name] = self.streak.get(name, 0) + 1
+            if self.streak[name] < PERSIST_FRAMES:
+                continue
+            hits.append({"label": name, "conf": float(p[i]), "score": CLASS_PRIORITY.get(name, 1) * float(p[i]) * loud})
+        order = np.argsort(p)[::-1][:3]
+        return sorted(hits, key=lambda h: -h["score"]), [(self.names[i], float(p[i])) for i in order]
 
 # ---------------------------------------------------------------- audio --
-state = {"label": None, "conf": 0.0, "db": -100.0, "angle": None, "top3": [], "history": [], "ts": 0}
+state = {"label": None, "conf": 0.0, "db": -100.0, "angle": None, "top3": [], "hits": [], "history": [], "ts": 0}
 lock = threading.Lock()
 
 def audio_loop(device=None):
@@ -98,14 +118,15 @@ def audio_loop(device=None):
                 state["angle"] = angle
                 state["ts"] = time.time()
                 if db < LOUDNESS_GATE_DB:
-                    state["label"] = None; state["conf"] = 0.0; state["top3"] = []
+                    state["label"] = None; state["conf"] = 0.0; state["top3"] = []; state["hits"] = []
                     continue
-                top = net.classify(mono)
-                state["top3"] = top
-                name, conf = top[0]
-                if name == "other" or conf < MIN_CONFIDENCE:
-                    state["label"] = None; state["conf"] = conf
+                hits, top3 = net.detect(mono, db)
+                state["top3"] = top3
+                state["hits"] = hits
+                if not hits:
+                    state["label"] = None; state["conf"] = 0.0
                 else:
+                    name, conf = hits[0]["label"], hits[0]["conf"]
                     state["label"] = name; state["conf"] = conf
                     h = state["history"]
                     if not h or h[0]["label"] != name or time.time() - h[0]["t"] > 2:
@@ -134,6 +155,7 @@ h1{font-weight:600;font-size:18px;letter-spacing:.08em;color:#9aa;margin:0 0 16p
 #meterfill{height:100%;width:0;background:#2ecc71;transition:width .15s}
 small{color:#667}
 #top3{margin-top:10px;font-size:12px;color:#889}
+#also{margin-top:8px;font-size:14px;color:#aab;min-height:18px}
 </style></head><body>
 <div id="left">
   <svg id="ring" width="360" height="360" viewBox="-100 -100 200 200">
@@ -147,6 +169,7 @@ small{color:#667}
   <div id="label">listening…</div>
   <div id="conf"></div>
   <div id="meter"><div id="meterfill"></div></div>
+  <div id="also"></div>
   <div id="top3"></div>
   <small style="margin-top:20px">front = up · laptop mic gives left/right only</small>
 </div>
@@ -171,6 +194,7 @@ async function tick(){
    else{wd.setAttribute('opacity',0);pu.setAttribute('stroke',col);pu.setAttribute('opacity',.9);}
   }else{document.getElementById('label').textContent=s.db<-50?'quiet':'…';document.getElementById('label').style.color='#556';
    document.getElementById('conf').textContent='';wd.setAttribute('opacity',0);pu.setAttribute('opacity',0);}
+  document.getElementById('also').innerHTML=(s.hits||[]).slice(1).map(h=>`<span class="dot" style="background:${C[h.label]||'#fff'}"></span>${h.label.replace('_',' ')} ${Math.round(h.conf*100)}%`).join('&nbsp;&nbsp;&nbsp;');
   document.getElementById('top3').textContent=(s.top3||[]).map(t=>t[0]+' '+Math.round(t[1]*100)+'%').join('   ');
   document.getElementById('hist').innerHTML=(s.history||[]).map(h=>`<div class="row"><span><span class="dot" style="background:${C[h.label]||'#fff'}"></span>${h.label.replace('_',' ')}</span><span>${Math.round(h.conf*100)}%</span></div>`).join('');
  }catch(e){}

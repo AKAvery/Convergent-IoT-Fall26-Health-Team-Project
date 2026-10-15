@@ -32,7 +32,7 @@ who are deaf or hard of hearing. Texas Convergent IoT, Fall 2026.
 ## Status
 
 - [x] Direction of arrival from 4-mic array (GCC-PHAT)
-- [x] Sound classifier: 13 classes, 92.6% on held-out data
+- [x] Sound classifier: 13 classes, multi-label, 93.8% on held-out data, noise/overlap augmentation
 - [x] LED ring output
 - [ ] Test on real hardware and calibrate
 - [ ] Record our own doorbell / dryer / smoke alarm clips and retrain

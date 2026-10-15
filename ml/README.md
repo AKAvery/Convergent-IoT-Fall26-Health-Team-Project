@@ -13,7 +13,8 @@ result is accurate on our 12 target sounds instead of 521 random ones.
 ## Results (held-out ESC-50 fold 5 + unseen speaker)
 
 ```
-clip accuracy: 92.6%
+single-sound clip accuracy: 93.8%
+two-sound mixtures: at least one detected 95%, both detected 30%
 
               precision  recall
 alarm           1.00     1.00
@@ -39,15 +40,17 @@ Full confusion matrix in `work/report.txt` after you run training.
 |---|---|---|
 | [ESC-50](https://github.com/karolpiczak/ESC-50) | dog, cat, baby cry, knock, glass, siren, car horn, clap, footsteps, alarm, vacuum/washer, + "other" | CC BY-NC |
 | [Free Spoken Digit Dataset](https://github.com/Jakobovski/free-spoken-digit-dataset) | speech (6 real speakers) | CC BY-SA |
+| [DEMAND](https://zenodo.org/records/1227121) *(optional)* | real rooms/streets as "other" + noise for augmentation | CC BY-SA |
+| [MUSAN](https://www.openslr.org/17/) *(optional)* | noise, music ("other") and extra speech | CC BY |
 | `data/my_clips/<label>/*.wav` | **your own recordings** (optional, see below) | yours |
 
-The datasets are not committed (1.4 GB). Download them with:
+The datasets are not committed. Download them with:
 
 ```bash
-cd ml/data
-git clone --depth 1 https://github.com/karolpiczak/ESC-50
-git clone --depth 1 https://github.com/Jakobovski/free-spoken-digit-dataset FSDD
+bash download_datasets.sh          # ESC-50 + FSDD (~1.5 GB, required)
+bash download_datasets.sh --all    # + DEMAND + MUSAN (~13 GB, better background rejection)
 ```
+DEMAND/MUSAN are picked up automatically by `prepare_data.py` if the folders exist.
 
 The YAMNet backbone (`models/yamnet_embedding_metadata.tflite`) *is* committed; it came
 from TensorFlow's own repo.
@@ -73,6 +76,22 @@ etc. that the user will hear. Phone recordings are fine.
    `data/my_clips/<label>/` yourself.
 3. Re-run the three scripts. New labels are picked up automatically and added to `labels.json`.
 4. If you add a new label, add a colour for it in `pi/sound_ring.py` → `HIGHLIGHT`.
+
+## How it stays robust in real rooms
+
+- **Augmentation** (`extract_embeddings.py`): every training clip also gets noisy copies mixed
+  with random background at 0–20 dB SNR, clap/knock clips get isolated single hits pasted on
+  background (so one clap counts, not just applause), and clips get mixed with a second sound
+  with both labels on, so overlapping sounds can both be detected.
+- **Multi-label head** (`train_head.py`): sigmoid outputs, one yes/no per class, instead of
+  softmax picking a single winner.
+- **Calibrated thresholds** (`models/thresholds.json`): chosen per class from the data. Safety
+  sounds (siren, alarm, glass, horn, baby) are tuned for recall; low-stakes sounds for precision.
+- **Priority scoring** (`config.CLASS_PRIORITY`, used by the Pi and demo): when several sounds
+  are detected, `priority × confidence × loudness` decides which one gets the ring. A loud dog
+  loses to a quieter car horn.
+- **Persistence** (`PERSIST_FRAMES`): a sound must show up on 2 consecutive updates before it
+  lights, which removes one-frame flickers at the cost of ~0.25 s latency.
 
 ## Tuning
 
