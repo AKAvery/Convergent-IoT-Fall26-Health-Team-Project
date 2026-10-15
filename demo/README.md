@@ -9,7 +9,7 @@ cd demo
 python3 live_demo.py
 ```
 
-Open http://localhost:5000, allow mic access if macOS asks (System Settings → Privacy →
+Open http://localhost:5050, allow mic access if macOS asks (System Settings → Privacy →
 Microphone → Terminal/VS Code), then clap, talk, play a siren off YouTube on your phone, etc.
 
 **What you'll see**

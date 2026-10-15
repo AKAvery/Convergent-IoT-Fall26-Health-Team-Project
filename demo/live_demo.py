@@ -5,7 +5,7 @@ same model the Pi uses, and shows a Fortnite-style ring in your browser.
 
     pip install sounddevice numpy tensorflow-cpu flask
     python3 live_demo.py
-    -> open http://localhost:5000
+    -> open http://localhost:5050
 
 Laptop mics are (usually) mono, so direction is estimated only when a stereo input
 exists (left/right from level difference). Otherwise the whole ring pulses.
@@ -189,5 +189,5 @@ if __name__ == "__main__":
     if "--device" in sys.argv:
         dev = int(sys.argv[sys.argv.index("--device") + 1])
     threading.Thread(target=audio_loop, args=(dev,), daemon=True).start()
-    print("open http://localhost:5000")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    print("open http://localhost:5050")
+    app.run(host="127.0.0.1", port=5050, debug=False)
