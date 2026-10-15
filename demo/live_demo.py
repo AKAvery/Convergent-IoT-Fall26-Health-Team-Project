@@ -197,4 +197,5 @@ if __name__ == "__main__":
     try:
         audio_loop(dev)
     except KeyboardInterrupt:
-        pass
+        print("\nbye")
+        import os; os._exit(0)   # skip TensorFlow's teardown, which segfaults on macOS
