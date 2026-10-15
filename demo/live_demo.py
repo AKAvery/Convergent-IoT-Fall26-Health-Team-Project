@@ -188,6 +188,13 @@ if __name__ == "__main__":
     dev = None
     if "--device" in sys.argv:
         dev = int(sys.argv[sys.argv.index("--device") + 1])
-    threading.Thread(target=audio_loop, args=(dev,), daemon=True).start()
+    # Flask in the background; audio + model on the MAIN thread (macOS CoreAudio and
+    # the mic-permission prompt are much happier that way).
+    import logging; logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    threading.Thread(target=lambda: app.run(host="127.0.0.1", port=5050, debug=False, use_reloader=False),
+                     daemon=True).start()
     print("open http://localhost:5050")
-    app.run(host="127.0.0.1", port=5050, debug=False)
+    try:
+        audio_loop(dev)
+    except KeyboardInterrupt:
+        pass
