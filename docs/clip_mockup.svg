@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" font-family="Helvetica, Arial, sans-serif">
+  <rect width="960" height="420" fill="#f4f4f6"/>
+
+  <!-- ===== 1: the module ===== -->
+  <text x="160" y="34" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">The module (actual size ~5 cm)</text>
+  <g transform="translate(160 160)">
+    <circle r="62" fill="#1e1e22" stroke="#0a0a0c" stroke-width="3"/>
+    <circle r="50" fill="none" stroke="#2c2c32" stroke-width="2"/>
+    <!-- 12 LEDs, all off but one -->
+    <g fill="#2a2a30">
+      <circle cx="0" cy="-56" r="4"/><circle cx="28" cy="-48.5" r="4"/><circle cx="48.5" cy="-28" r="4"/>
+      <circle cx="56" cy="0" r="4"/><circle cx="48.5" cy="28" r="4"/><circle cx="28" cy="48.5" r="4"/>
+      <circle cx="0" cy="56" r="4"/><circle cx="-28" cy="48.5" r="4"/><circle cx="-48.5" cy="28" r="4"/>
+      <circle cx="-56" cy="0" r="4"/><circle cx="-48.5" cy="-28" r="4"/><circle cx="-28" cy="-48.5" r="4"/>
+    </g>
+    <circle cx="-48.5" cy="28" r="6" fill="#ff2d2d"/>
+    <circle cx="-48.5" cy="28" r="11" fill="none" stroke="#ff2d2d" stroke-width="2" opacity="0.4"/>
+    <!-- mic holes -->
+    <g fill="#555"><circle cx="-22" cy="-22" r="2"/><circle cx="22" cy="-22" r="2"/><circle cx="-22" cy="22" r="2"/><circle cx="22" cy="22" r="2"/></g>
+    <!-- clip -->
+    <rect x="-18" y="58" width="36" height="22" rx="4" fill="#333" stroke="#111"/>
+  </g>
+  <text x="160" y="268" font-size="11" fill="#333" text-anchor="middle">dark by default · one LED lights toward the sound</text>
+  <text x="160" y="284" font-size="11" fill="#333" text-anchor="middle">red = siren/horn · green = voice · orange = animal</text>
+  <text x="160" y="300" font-size="11" fill="#333" text-anchor="middle">looks like a bike light</text>
+
+  <!-- ===== 2: on a backpack strap ===== -->
+  <text x="480" y="34" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">On a backpack strap (everyday)</text>
+  <!-- torso -->
+  <path d="M400 110 Q480 80 560 110 L575 330 L385 330 Z" fill="#3f5d8a"/>
+  <ellipse cx="480" cy="80" rx="34" ry="40" fill="#e9c9a8"/>
+  <!-- strap -->
+  <path d="M430 108 L418 330" stroke="#222" stroke-width="22" stroke-linecap="round"/>
+  <!-- module on strap -->
+  <circle cx="426" cy="175" r="20" fill="#1e1e22" stroke="#0a0a0c" stroke-width="2"/>
+  <circle cx="412" cy="183" r="2.5" fill="#ff2d2d"/>
+  <!-- glance line -->
+  <path d="M470 95 Q450 130 432 160" stroke="#888" stroke-width="1.5" fill="none" stroke-dasharray="3 3"/>
+  <text x="520" y="180" font-size="11" fill="#333">lower edge of vision:</text>
+  <text x="520" y="196" font-size="11" fill="#333">visible on a glance down,</text>
+  <text x="520" y="212" font-size="11" fill="#333">invisible when looking ahead</text>
+  <text x="520" y="250" font-size="11" fill="#333">phone / watch gets a</text>
+  <text x="520" y="266" font-size="11" fill="#333">haptic tap for red sounds</text>
+
+  <!-- ===== 3: on a helmet / hard hat ===== -->
+  <text x="800" y="34" font-size="14" font-weight="bold" fill="#222" text-anchor="middle">On a helmet (bike / work)</text>
+  <path d="M720 190 Q800 60 880 190 Z" fill="#e6b400" stroke="#9a7a00" stroke-width="2"/>
+  <rect x="712" y="186" width="176" height="14" rx="4" fill="#9a7a00"/>
+  <ellipse cx="800" cy="235" rx="40" ry="46" fill="#e9c9a8"/>
+  <!-- module on top -->
+  <circle cx="800" cy="108" r="22" fill="#1e1e22" stroke="#0a0a0c" stroke-width="2"/>
+  <circle cx="800" cy="88" r="3" fill="#ff8c00"/>
+  <!-- strip under brim -->
+  <rect x="740" y="200" width="120" height="5" rx="2" fill="#111"/>
+  <circle cx="752" cy="202.5" r="3" fill="#ff8c00"/>
+  <text x="800" y="310" font-size="11" fill="#333" text-anchor="middle">mics on top for clean 360°</text>
+  <text x="800" y="326" font-size="11" fill="#333" text-anchor="middle">short LED strip under the brim</text>
+  <text x="800" y="342" font-size="11" fill="#333" text-anchor="middle">= left / front / right glow at the</text>
+  <text x="800" y="358" font-size="11" fill="#333" text-anchor="middle">top edge of vision, like a bike light</text>
+</svg>
