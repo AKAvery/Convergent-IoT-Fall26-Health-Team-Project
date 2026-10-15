@@ -4,10 +4,16 @@ Runs the Sound Ring classifier on your computer's microphone and shows the ring 
 browser. No Pi needed. Same model files as the Pi (`../pi/`).
 
 ```bash
-pip install sounddevice numpy tensorflow-cpu flask
-cd demo
+git clone https://github.com/AKAvery/Convergent-IoT-Fall26-Health-Team-Project
+cd Convergent-IoT-Fall26-Health-Team-Project/demo
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt  # tensorflow is ~250 MB, takes a minute
 python3 live_demo.py
 ```
+
+Needs Python 3.10–3.12 (`python3 --version`). On a Mac, `brew install python@3.12` if
+you only have the system 3.9. The model files are committed, nothing else to download.
 
 Open http://localhost:5050, allow mic access if macOS asks (System Settings → Privacy →
 Microphone → Terminal/VS Code), then clap, talk, play a siren off YouTube on your phone, etc.

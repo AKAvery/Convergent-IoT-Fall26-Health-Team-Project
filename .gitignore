@@ -9,3 +9,6 @@ ml/work/manifest.csv
 __pycache__/
 *.pyc
 .DS_Store
+
+# virtualenvs
+.venv/
