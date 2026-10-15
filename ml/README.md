@@ -55,7 +55,7 @@ from TensorFlow's own repo.
 ## Run it
 
 ```bash
-pip install tensorflow-cpu soundfile resampy scikit-learn
+pip install tensorflow soundfile resampy scikit-learn sounddevice
 cd ml
 python3 prepare_data.py        # builds work/manifest.csv, prints class counts
 python3 extract_embeddings.py  # ~4 min on a laptop, writes work/embeddings.npz
@@ -68,8 +68,9 @@ cp models/sound_head.tflite models/labels.json ../pi/
 The biggest accuracy win is recording the *actual* doorbell, dryer buzzer, smoke alarm,
 etc. that the user will hear. Phone recordings are fine.
 
-1. Make `data/my_clips/<label>/` — the label can be an existing one (`knock`) or new (`doorbell`, `dryer`).
-2. Drop 20–40 WAV clips in, 2–5 seconds each, from different distances and rooms.
+1. `python3 record_clips.py clap` (or `doorbell`, `dryer`, any label). Press Enter to record
+   each 2 s clip. Do 20–40, from different distances and spots in the room. Or drop WAVs into
+   `data/my_clips/<label>/` yourself.
 3. Re-run the three scripts. New labels are picked up automatically and added to `labels.json`.
 4. If you add a new label, add a colour for it in `pi/sound_ring.py` → `HIGHLIGHT`.
 
