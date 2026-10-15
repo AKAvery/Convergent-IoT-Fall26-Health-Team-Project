@@ -19,6 +19,7 @@ who are deaf or hard of hearing. Texas Convergent IoT, Fall 2026.
 | Folder | What's in it |
 |---|---|
 | `pi/` | Code that runs on the Raspberry Pi: mic reading, direction finding, classification, LEDs. Start with `pi/README.md`. |
+| `demo/` | **Try it now on your laptop**: mic in, live ring in the browser, no hardware. See `demo/README.md`. |
 | `ml/` | Training pipeline for the sound classifier. Already trained; re-run if you add your own recordings. See `ml/README.md`. |
 | `docs/` | Project overview PDF, physical/UI mockup. |
 
@@ -35,4 +36,5 @@ who are deaf or hard of hearing. Texas Convergent IoT, Fall 2026.
 - [x] LED ring output
 - [ ] Test on real hardware and calibrate
 - [ ] Record our own doorbell / dryer / smoke alarm clips and retrain
+- [x] Laptop live demo (`demo/`)
 - [ ] Phone "radar" view (optional demo mode)
