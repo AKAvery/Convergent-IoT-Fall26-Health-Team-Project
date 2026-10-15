@@ -1,0 +1,11 @@
+# datasets (download with the commands in ml/README.md)
+ml/data/ESC-50/
+ml/data/FSDD/
+
+# generated during training
+ml/work/embeddings.npz
+ml/work/manifest.csv
+
+__pycache__/
+*.pyc
+.DS_Store

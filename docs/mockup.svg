@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" font-family="Helvetica, Arial, sans-serif">
+  <rect width="900" height="520" fill="#f4f4f6"/>
+
+  <!-- ===== LEFT: the wearer ===== -->
+  <text x="150" y="36" font-size="15" font-weight="bold" fill="#222" text-anchor="middle">What you wear</text>
+
+  <!-- head -->
+  <ellipse cx="150" cy="235" rx="62" ry="78" fill="#e9c9a8" stroke="#b58c66" stroke-width="2"/>
+  <!-- neck/shoulders -->
+  <rect x="128" y="300" width="44" height="30" fill="#e9c9a8"/>
+  <path d="M40 420 Q150 320 260 420 L260 470 L40 470 Z" fill="#3f5d8a"/>
+
+  <!-- cap -->
+  <path d="M86 205 Q150 120 214 205 Z" fill="#2b2b2b"/>
+  <rect x="86" y="200" width="128" height="14" rx="4" fill="#2b2b2b"/>
+  <path d="M86 207 L30 222 Q35 232 90 221 Z" fill="#1d1d1d"/>
+
+  <!-- electronics stack on top -->
+  <rect x="118" y="135" width="64" height="16" rx="3" fill="#1b5e20" stroke="#0e3a12"/>
+  <rect x="118" y="124" width="64" height="12" rx="3" fill="#0d47a1" stroke="#082a63"/>
+  <!-- mic dots -->
+  <circle cx="126" cy="130" r="2.5" fill="#ddd"/>
+  <circle cx="174" cy="130" r="2.5" fill="#ddd"/>
+  <circle cx="126" cy="143" r="2.5" fill="#ddd"/>
+  <circle cx="174" cy="143" r="2.5" fill="#ddd"/>
+  <!-- LED ring glow -->
+  <circle cx="150" cy="130" r="20" fill="none" stroke="#ff8c00" stroke-width="3" opacity="0.35"/>
+  <circle cx="166" cy="118" r="4" fill="#ff8c00"/>
+  <!-- camera on brim -->
+  <rect x="44" y="214" width="14" height="10" rx="2" fill="#333"/>
+  <circle cx="51" cy="219" r="3" fill="#111" stroke="#666"/>
+  <!-- cable -->
+  <path d="M182 150 Q210 180 205 260 Q200 330 215 400" fill="none" stroke="#222" stroke-width="2"/>
+  <!-- battery in pocket -->
+  <rect x="200" y="395" width="36" height="55" rx="5" fill="#555" stroke="#222"/>
+  <text x="218" y="427" font-size="9" fill="#eee" text-anchor="middle">USB</text>
+  <!-- wrist phone -->
+  <rect x="30" y="300" width="20" height="100" rx="4" fill="#2b2b2b" transform="rotate(-18 40 350)"/>
+
+  <!-- callouts -->
+  <text x="236" y="128" font-size="11" fill="#333">4-mic board + LED ring</text>
+  <text x="236" y="146" font-size="11" fill="#333">Pi Zero 2 W underneath</text>
+  <line x1="60" y1="208" x2="60" y2="190" stroke="#333" stroke-width="1"/>
+  <text x="20" y="184" font-size="11" fill="#333">camera on brim</text>
+  <text x="240" y="425" font-size="11" fill="#333">battery pack</text>
+  <text x="10" y="455" font-size="11" fill="#333">phone on wrist</text>
+  <text x="10" y="470" font-size="11" fill="#333">(or chest)</text>
+
+  <!-- ===== RIGHT: the phone screen ===== -->
+  <text x="620" y="36" font-size="15" font-weight="bold" fill="#222" text-anchor="middle">What you see on the phone</text>
+
+  <!-- phone body -->
+  <rect x="470" y="52" width="300" height="450" rx="28" fill="#111"/>
+  <rect x="482" y="64" width="276" height="426" rx="20" fill="#223"/>
+  <clipPath id="scr"><rect x="482" y="64" width="276" height="426" rx="20"/></clipPath>
+
+  <g clip-path="url(#scr)">
+    <!-- "camera feed": sky, street, buildings -->
+    <rect x="482" y="64" width="276" height="200" fill="#a9c6df"/>
+    <rect x="482" y="250" width="276" height="240" fill="#6d6d6d"/>
+    <rect x="482" y="170" width="70" height="95" fill="#8a8f98"/>
+    <rect x="560" y="140" width="55" height="125" fill="#757a83"/>
+    <rect x="700" y="160" width="58" height="105" fill="#8a8f98"/>
+    <!-- road lines -->
+    <path d="M600 490 L625 265 L635 265 L660 490 Z" fill="#5a5a5a"/>
+    <path d="M628 300 L632 300 L636 350 L626 350 Z" fill="#ddd"/>
+    <path d="M623 380 L639 380 L645 440 L617 440 Z" fill="#ddd"/>
+    <!-- a car (dog direction source) -->
+    <rect x="505" y="300" width="60" height="28" rx="6" fill="#c0392b"/>
+    <rect x="515" y="290" width="38" height="14" rx="4" fill="#e74c3c"/>
+
+    <!-- dim vignette so overlays read -->
+    <rect x="482" y="64" width="276" height="426" fill="#000" opacity="0.15"/>
+
+    <!-- the sound ring, bottom-center -->
+    <g transform="translate(620 400)">
+      <circle r="58" fill="#000" opacity="0.35"/>
+      <circle r="58" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.6"/>
+      <circle r="38" fill="none" stroke="#fff" stroke-width="1" opacity="0.3"/>
+      <!-- 12 ticks -->
+      <g stroke="#fff" opacity="0.5">
+        <line x1="0" y1="-58" x2="0" y2="-50"/><line x1="0" y1="58" x2="0" y2="50"/>
+        <line x1="-58" y1="0" x2="-50" y2="0"/><line x1="58" y1="0" x2="50" y2="0"/>
+        <line x1="29" y1="-50" x2="25" y2="-43"/><line x1="50" y1="-29" x2="43" y2="-25"/>
+        <line x1="-29" y1="-50" x2="-25" y2="-43"/><line x1="-50" y1="-29" x2="-43" y2="-25"/>
+        <line x1="29" y1="50" x2="25" y2="43"/><line x1="50" y1="29" x2="43" y2="25"/>
+        <line x1="-29" y1="50" x2="-25" y2="43"/><line x1="-50" y1="29" x2="-43" y2="25"/>
+      </g>
+      <!-- you -->
+      <path d="M0 -9 L7 6 L0 2 L-7 6 Z" fill="#fff"/>
+      <!-- wedge: siren at ~300° (front-left) -->
+      <path d="M0 0 L-38 -44 A58 58 0 0 1 -14 -56 Z" fill="#ff2d2d" opacity="0.75"/>
+      <!-- wedge: dog at ~250° (left) -->
+      <path d="M0 0 L-55 -18 A58 58 0 0 1 -56 10 Z" fill="#ff8c00" opacity="0.75"/>
+      <!-- wedge: speech behind-right -->
+      <path d="M0 0 L30 50 A58 58 0 0 1 10 57 Z" fill="#2ecc71" opacity="0.6"/>
+    </g>
+
+    <!-- edge markers on the video -->
+    <!-- siren marker front-left -->
+    <g transform="translate(520 120)">
+      <circle r="16" fill="#ff2d2d" opacity="0.9"/>
+      <circle r="24" fill="none" stroke="#ff2d2d" stroke-width="2" opacity="0.5"/>
+      <text y="5" font-size="12" fill="#fff" text-anchor="middle" font-weight="bold">!</text>
+    </g>
+    <rect x="500" y="150" width="78" height="20" rx="10" fill="#000" opacity="0.6"/>
+    <text x="539" y="164" font-size="11" fill="#fff" text-anchor="middle">SIREN  far</text>
+
+    <!-- dog marker, left edge -->
+    <g transform="translate(498 310)">
+      <path d="M-10 0 L8 -12 L8 12 Z" fill="#ff8c00"/>
+    </g>
+    <rect x="508" y="330" width="68" height="20" rx="10" fill="#000" opacity="0.6"/>
+    <text x="542" y="344" font-size="11" fill="#fff" text-anchor="middle">DOG  near</text>
+
+    <!-- behind marker -->
+    <rect x="640" y="462" width="104" height="20" rx="10" fill="#000" opacity="0.6"/>
+    <text x="692" y="476" font-size="11" fill="#2ecc71" text-anchor="middle">SPEECH  behind ↓</text>
+
+    <!-- top bar -->
+    <rect x="482" y="64" width="276" height="26" fill="#000" opacity="0.5"/>
+    <text x="494" y="81" font-size="11" fill="#fff">SOUND RING</text>
+    <text x="746" y="81" font-size="11" fill="#9f9" text-anchor="end">● live</text>
+  </g>
+
+  <!-- legend under phone -->
+  <rect x="470" y="508" width="300" height="2" fill="none"/>
+  <g font-size="11" fill="#333">
+    <circle cx="790" cy="420" r="5" fill="#ff2d2d"/><text x="800" y="424">siren / alarm</text>
+    <circle cx="790" cy="440" r="5" fill="#ff8c00"/><text x="800" y="444">dog / animal</text>
+    <circle cx="790" cy="460" r="5" fill="#2ecc71"/><text x="800" y="464">speech</text>
+    <circle cx="790" cy="480" r="5" fill="#00c8ff"/><text x="800" y="484">door / knock</text>
+  </g>
+</svg>
