@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sound Ring glasses</title>
-<meta name="description" content="Interactive 3D concept of the Sound Ring smart-glasses frame: four microphones at the corners, a camera in the bridge.">
+<meta name="description" content="Interactive 3D concept of the Sound Ring smart-glasses frame: four microphones at the corners, a camera in the bridge, ESP32-S3 and battery in the temples.">
 <!--
   Sound Ring — glasses concept render.
   Self-contained: open this file directly, serve it with `python3 -m http.server`, or visit
   http://localhost:5050/rendering while demo/live_demo.py runs. Three.js comes from jsDelivr.
   Model is procedural (no CAD yet); `?model=frame.glb` swaps in a real export when one exists.
+  The electronics from README.md / hardware-bom.md are modelled at true scale inside the temples (XIAO ESP32-S3
+  on the wearer's right, LiPo on the left, wiring through the brow bar); the Crystal finish shows them.
   Units are millimetres. +Y up, +Z = where the wearer looks, so the wearer's right is -X. The default camera
   faces the wearer, which puts their right on the viewer's left, as when you look at a person.
 -->
@@ -108,7 +110,7 @@ kbd{font:inherit;color:var(--dim)}
 
   <header id="hud">
     <h1>Sound Ring · glasses concept</h1>
-    <p>4 microphones at the corners · camera in the bridge · drag to rotate, scroll to zoom · left/right are the wearer's</p>
+    <p>4 microphones at the corners · camera in the bridge · ESP32-S3 and battery in the temples · drag to rotate, scroll to zoom · left/right are the wearer's</p>
     <a id="backlink" href="/" hidden>← live demo</a>
   </header>
 
@@ -116,14 +118,15 @@ kbd{font:inherit;color:var(--dim)}
     <div class="row" role="group" aria-label="View"><b>View</b>
       <button class="pill" data-view="quarter" aria-pressed="true" title="key 1">3/4</button>
       <button class="pill" data-view="front" aria-pressed="false" title="key 2">Front</button>
-      <button class="pill" data-view="side" aria-pressed="false" title="key 3">Side</button>
-      <button class="pill" data-view="top" aria-pressed="false" title="key 4">Top</button>
-      <button class="pill" data-view="inside" aria-pressed="false" title="key 5">Inside</button>
+      <button class="pill" data-view="left" aria-pressed="false" title="key 3 · wearer's left: battery">Left</button>
+      <button class="pill" data-view="right" aria-pressed="false" title="key 4 · wearer's right: ESP32-S3">Right</button>
+      <button class="pill" data-view="top" aria-pressed="false" title="key 5">Top</button>
+      <button class="pill" data-view="inside" aria-pressed="false" title="key 6">Inside</button>
     </div>
     <div class="row" role="group" aria-label="Frame finish"><b>Finish</b>
       <button class="pill" data-finish="matte" aria-pressed="true" title="key F cycles">Matte</button>
       <button class="pill" data-finish="gloss" aria-pressed="false">Gloss</button>
-      <button class="pill" data-finish="crystal" aria-pressed="false">Crystal</button>
+      <button class="pill" data-finish="crystal" aria-pressed="false" title="see-through: shows the electronics">Crystal</button>
     </div>
     <div class="row" role="group" aria-label="Lens"><b>Lens</b>
       <button class="pill" data-lens="clear" aria-pressed="true">Clear</button>
@@ -145,9 +148,11 @@ kbd{font:inherit;color:var(--dim)}
   </aside>
 
   <p id="cap">
-    Procedural concept, not the final industrial design. Parts per
-    <a href="../hardware-bom.md">hardware-bom.md</a>: 4× INMP441 MEMS mics (front-left, front-right,
-    back-left, back-right, ports facing up), OV2640 camera in the bridge, ESP32-S3 and battery inside the temples.
+    Procedural concept, not the final industrial design. Parts per the README and
+    <a href="../hardware-bom.md">hardware-bom.md</a>, at true scale: 4× INMP441 MEMS mics (ports facing up),
+    OV2640 camera in the bridge, XIAO ESP32-S3 Sense on edge in the right temple (USB-C charge port underneath),
+    a 40 × 20 × 4 mm LiPo (~300 mAh) in the left temple, wiring through the brow bar. The temples are sized
+    around those parts. Pick <b>Crystal</b> to see inside.
   </p>
 
   <div id="fallback" role="alert">
@@ -376,12 +381,21 @@ function roundedRect(w, h, rOut, rIn = rOut, n = 6) {
     { x: -w / 2, y: -h / 2, r: rIn },  { x:  w / 2, y: -h / 2, r: rOut },
   ], n);
 }
-const templeH = t => (t < 0.35 ? 10 : lerp(10, 5, (t - 0.35) / 0.65));     // height (chunky until the mic)
-const templeW = t => (t < 0.45 ? 6 : lerp(6, 3.6, (t - 0.45) / 0.55));      // thickness
+const templeH = t => (t < 0.35 ? 10 : lerp(10, 5, (t - 0.35) / 0.65));     // slim arm: height
+const templeW = t => (t < 0.45 ? 6 : lerp(6, 3.6, (t - 0.45) / 0.55));      // slim arm: thickness
+const smooth = (a, b, x) => { const k = clamp((x - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+// Electronics bay: behind the hinge each temple swells down and out around its payload (XIAO ESP32-S3 Sense
+// 21 x 17.5 mm standing on edge on the right, 402040 LiPo 40 x 20 x 4 mm on the left), then tapers back to the
+// slim arm before the rear mic. The top edge and the inner (head) face stay where the slim arm has them.
+const BAY = { drop: 14, bulge: 3.6, t0: 0.02, t1: 0.11, t2: 0.39, t3: 0.53 };
+const bayK = t => smooth(BAY.t0, BAY.t1, t) * (1 - smooth(BAY.t2, BAY.t3, t));
+const templeOuter = t => templeW(t) / 2 + BAY.bulge * bayK(t);             // outer face, from the centre line
+const templeFloor = t => -templeH(t) / 2 - BAY.drop * bayK(t);             // underside
 function templeProfile(t) {
   const s = t > 0.975 ? Math.max(0.03, Math.sqrt(Math.max(0, 1 - ((t - 0.975) / 0.025) ** 2))) : 1;
-  const w = templeW(t) * s, h = templeH(t) * s, m = Math.min(w, h);
-  return roundedRect(w, h, m * 0.42, m * 0.18, 6);
+  const k = bayK(t), dw = BAY.bulge * k, dh = BAY.drop * k;
+  const w = (templeW(t) + dw) * s, h = (templeH(t) + dh) * s, m = Math.min(w, h);
+  return roundedRect(w, h, m * 0.42, m * 0.18, 6).map(p => V2(p.x + dw / 2 * s, p.y - dh / 2 * s));
 }
 
 // Blurred grey noise for roughness/bump breakup on the plastic.
@@ -435,7 +449,8 @@ const FINISHES = {
     metal: new THREE.MeshStandardMaterial({ color: '#3a4046', metalness: 1, roughness: 0.25 }),
   },
   crystal: {
-    acetate: mkAcetate({ color: '#dfe6ea', transmission: 0.9, thickness: 4, ior: 1.49, roughness: 0.1,
+    // thin "thickness": a thick refracting slab smears the electronics inside into blobs
+    acetate: mkAcetate({ color: '#dfe6ea', transmission: 0.9, thickness: 1.2, ior: 1.49, roughness: 0.04,
                          attenuationColor: '#c3ced6', attenuationDistance: 30, clearcoat: 1, clearcoatRoughness: 0.04 }),
     metal: new THREE.MeshStandardMaterial({ color: '#b8bec4', metalness: 1, roughness: 0.25 }),
   },
@@ -447,7 +462,15 @@ const MAT = {
               iridescence: 1, iridescenceIOR: 1.3, iridescenceThicknessRange: [100, 400], envMapIntensity: 1.5 }),
   camRing: new THREE.MeshStandardMaterial({ color: '#3a3f45', metalness: 1, roughness: 0.35 }),
   privacyLed: new THREE.MeshStandardMaterial({ color: '#e8e8e8', emissive: '#ffffff', emissiveIntensity: 0.4, roughness: 0.3 }),
-  board: new THREE.MeshStandardMaterial({ color: '#1a1d20', roughness: 0.6 }),
+  // electronics (seen through the crystal finish; must stay opaque, transparent parts inside a transmissive shell vanish)
+  pcb:       new THREE.MeshStandardMaterial({ color: '#15181c', roughness: 0.55 }),
+  shield:    new THREE.MeshStandardMaterial({ color: '#d3d7db', metalness: 1, roughness: 0.3 }),
+  pouch:     new THREE.MeshStandardMaterial({ color: '#9aa0a6', metalness: 0.7, roughness: 0.45 }),
+  kapton:    new THREE.MeshStandardMaterial({ color: '#c98a1e', metalness: 0.15, roughness: 0.35 }),
+  pcm:       new THREE.MeshStandardMaterial({ color: '#1e6b3c', roughness: 0.5 }),
+  wire:      new THREE.MeshStandardMaterial({ color: '#d7dbe0', roughness: 0.6 }),
+  wireRed:   new THREE.MeshStandardMaterial({ color: '#c8262c', roughness: 0.6 }),
+  wireBlack: new THREE.MeshStandardMaterial({ color: '#17191c', roughness: 0.6 }),
 };
 function lensMaterial(kind) {
   if (lensSimple) {                               // cheap path: tinted coated glass, no refraction
@@ -548,21 +571,13 @@ halfR.add(temple);
   temple.add(m);
   const a = anchor('anchor_mic_back'); a.position.copy(m.position).addScaledVector(f.U, 0.6); temple.add(a);
 }
-for (const t of [0.04]) for (const dy of [2, -2]) {                        // hinge rivets on the outer face
+for (const t of [0.02]) for (const dy of [2, -2]) {                        // hinge rivets on the outer face
   const f = frameAt(templeCurve, t);
   const r = part(new THREE.SphereGeometry(0.75, 16, 12), 'rivet', { cast: false, occlude: false });
   r.scale.z = 0.45;
-  r.position.copy(f.P).addScaledVector(f.S, templeW(t) / 2).addScaledVector(f.U, dy);
+  r.position.copy(f.P).addScaledVector(f.S, templeOuter(t)).addScaledVector(f.U, dy);
   r.quaternion.setFromUnitVectors(Z_AXIS, f.S);
   temple.add(r);
-}
-{ // electronics block, only visible through the crystal finish
-  const f = frameAt(templeCurve, 0.22);
-  const b = part(new RoundedBoxGeometry(4.2, 7.2, 46, 2, 0.8), 'board', { cast: false, occlude: false });
-  b.position.copy(f.P);
-  b.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(f.S, f.U, f.T.clone().negate()));
-  b.visible = false; b.name = 'board';
-  temple.add(b);
 }
 
 // centre: bridge bar and the camera pod
@@ -590,18 +605,106 @@ frontC.add(pod);
 // mirror the right half; the clone shares geometries and materials
 const halfL = halfR.clone(); halfL.name = 'halfL'; halfL.scale.x = -1;
 model.add(halfR, halfL, frontC);
+model.updateMatrixWorld(true);                                              // model space == world space here
+
+// ============================================================ D2. electronics in the temples
+// The wearer looks toward +Z, so the wearer's RIGHT is -X (the mirrored half) and +X is their left.
+// Right temple: XIAO ESP32-S3 Sense standing on edge, USB-C pointing down through a slot in the underside.
+// Left temple: 402040 LiPo. Camera flex, battery leads and the left mics' wires cross inside the brow bar.
+// Only the port slot shows from outside; the rest is visible through the Crystal finish.
+const electronics = new THREE.Group(); electronics.name = 'electronics'; electronics.visible = false;
+model.add(electronics);
+// Frame of a temple at t. sign = +1: wearer's left (the built half), -1: wearer's right (its mirror, x flipped).
+// Basis is right-handed with X outward and Y up; Z runs along the arm (toward the ear on the right, toward
+// the hinge on the left, because the mirror flips exactly one axis).
+function templeFrame(sign, t) {
+  const f = frameAt(templeCurve, t);
+  if (sign < 0) for (const v of [f.P, f.T, f.S, f.U]) v.x *= -1;
+  const Z = sign < 0 ? f.T.clone() : f.T.clone().negate();
+  return { ...f, basis: new THREE.Matrix4().makeBasis(f.S, f.U, Z) };
+}
+function inTemple(obj, sign, t, a, b, c = 0) {       // a = outward, b = up, c = toward the ear (mm from the centre line)
+  const f = templeFrame(sign, t);
+  obj.position.copy(f.P).addScaledVector(f.S, a).addScaledVector(f.U, b).addScaledVector(f.T, c);
+  obj.quaternion.setFromRotationMatrix(f.basis);
+  return obj;
+}
+const templePt = (sign, t, a, b) => inTemple(new THREE.Object3D(), sign, t, a, b).position;
+const box = (role, w, h, d, r = 0) =>
+  part(r ? new RoundedBoxGeometry(w, h, d, 2, r) : new THREE.BoxGeometry(w, h, d), role, { cast: false, occlude: false });
+const MCU_T = 0.165, BAT_T = 0.243;                   // centres along the arm (t), both inside the bay plateau
+
+{ // XIAO ESP32-S3 + Sense expansion board, right temple. Group axes: x outward, y up, z toward the ear.
+  const g = new THREE.Group(); g.name = 'mcu';
+  g.add(box('pcb', 1.0, 21, 17.5));                                                         // base board, on edge
+  const can = box('shield', 1.4, 10, 12.5); can.position.set(1.2, 3.8, 0); g.add(can);       // module shield
+  const usb = box('shield', 3.2, 7.3, 8.9, 0.6); usb.position.set(2.1, -6.85, 0); g.add(usb); // USB-C, opening down
+  for (const z of [-7.6, 7.6]) { const c = box('pcb', 2.2, 14, 1.6); c.position.set(1.6, 1.5, z); g.add(c); }
+  const sense = box('pcb', 0.8, 21, 17.5); sense.position.x = 4.1; g.add(sense);              // Sense board on headers
+  const sd = box('shield', 1.2, 11, 12); sd.position.set(5.1, -3, 0); g.add(sd);              // microSD slot
+  const fpc = box('shield', 1.0, 2.6, 8); fpc.position.set(5.0, 8.2, 0); g.add(fpc);          // camera flex connector
+  inTemple(g, -1, MCU_T, -1.4, -7);
+  electronics.add(g);
+}
+{ // LiPo cell, left temple. Group axes: x outward, y up, z toward the hinge.
+  const g = new THREE.Group(); g.name = 'battery';
+  g.add(box('pouch', 4, 20, 40, 0.9));                                                        // 402040 pouch
+  const tape = box('kapton', 4.4, 20.4, 14, 0.5); tape.position.z = -6; g.add(tape);            // kapton wrap
+  const pcm = box('pcm', 1.2, 16, 2.4); pcm.position.set(0, -1, 21.1); g.add(pcm);              // protection board
+  inTemple(g, +1, BAT_T, 1.0, -7.3);
+  electronics.add(g);
+}
+{ // charge port in the underside of the right temple: the one external trace of the electronics
+  const rim = box('metal', 4.8, 0.3, 10.6), slot = box('recess', 3.6, 0.5, 9.4);
+  inTemple(rim, -1, MCU_T, 0.7, templeFloor(MCU_T) + 0.05);
+  inTemple(slot, -1, MCU_T, 0.7, templeFloor(MCU_T) - 0.05);
+  model.add(rim, slot);
+}
+model.add(inTemple(anchor('anchor_mcu'), -1, MCU_T, templeOuter(MCU_T) + 0.4, -7),
+          inTemple(anchor('anchor_battery'), +1, BAT_T, templeOuter(BAT_T) + 0.4, -7));
+
+// Wiring. Strands sit inside the brow bar (dy up, dz back, from the bar's centre line) and along the top of
+// each temple; all of it ends at the board's edges, where the XIAO's pads are.
+const browPts = (sign, dy, dz) => [[2, 15.6], [8.5, 15.8], [14.5, 20.2], [30, 21.7], [48, 23.0], [61, 23.9], [68, 22.6]]
+  .map(([x, y]) => frontC.localToWorld(new THREE.Vector3(sign * x, y + dy, dz - 0.4 - sag(x, y))));
+const epPt = (sign, x, y, z) => { const p = endPiece.localToWorld(new THREE.Vector3(x, y, z)); p.x *= sign; return p; };
+const strand = (pts, role, r = 0.4) => {
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  return part(new THREE.TubeGeometry(curve, Math.max(24, Math.round(curve.getLength() / 1.5)), r, 8), role, { cast: false, occlude: false });
+};
+const acrossBrow = (dy, dz) => [...browPts(+1, dy, dz).reverse(), ...browPts(-1, dy, dz)];   // left hinge -> right hinge
+const intoRight = (dy, vEnd) => [templePt(-1, 0.005, 0, dy), templePt(-1, 0.05, -1.0, dy - 0.6), templePt(-1, 0.104, -1.4, vEnd)];
+{ // camera flex: pod -> right brow -> hinge -> outside of the board stack -> its connector
+  const pts = [...browPts(-1, 0, 0), templePt(-1, 0.005, 0, 1.8), templePt(-1, 0.04, 1.0, 1.8),
+               templePt(-1, 0.08, 4.9, 1.6), templePt(-1, MCU_T, 4.9, 1.6)];
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  electronics.add(part(sweep(curve, () => roundedRect(0.3, 4, 0.12, 0.12, 2), { segments: 160, cap: true }), 'kapton', { cast: false, occlude: false }));
+}
+const leftArm = (a, v) => [templePt(+1, 0.11, a, v), templePt(+1, 0.07, a * 0.5, v - 0.4), templePt(+1, 0.03, 0, 2.6), templePt(+1, 0.005, 0, 2.4)];
+electronics.add(
+  strand([...leftArm(1.8, 3.4), ...acrossBrow(1.8, 0.9), ...intoRight(2.4, -14.5)], 'wireRed', 0.38),   // battery +
+  strand([...leftArm(0.4, 3.4), ...acrossBrow(0.6, 0.9), ...intoRight(2.3, -13.2)], 'wireBlack', 0.38), // battery -
+  strand([epPt(+1, 0, 4.4, 0), epPt(+1, -1, 0.5, -0.5), ...acrossBrow(-1.8, 0.9), ...intoRight(2.1, -6)], 'wire'),  // mic 2 (front left)
+  strand([templePt(+1, 0.6, 0, templeH(0.6) / 2 - 1), templePt(+1, 0.5, 0, 1.8), templePt(+1, 0.4, -0.6, 2.9),
+          templePt(+1, 0.25, -1.0, 3.35), templePt(+1, 0.12, -1.0, 3.35), templePt(+1, 0.06, -0.4, 3.0),
+          templePt(+1, 0.005, 0, 2.5), ...acrossBrow(-0.6, 0.9), ...intoRight(2.2, -9)], 'wire'),                      // mic 4 (back left)
+  strand([epPt(-1, 0, 4.4, 0), epPt(-1, -1, 0.5, -0.5), ...intoRight(2.2, 0)], 'wire'),                             // mic 1 (front right)
+  strand([templePt(-1, 0.6, 0, templeH(0.6) / 2 - 1), templePt(-1, 0.5, 0, 1.6), templePt(-1, 0.4, -0.6, 1.8),
+          templePt(-1, 0.3, -1.0, 1.6), templePt(-1, 0.228, -1.4, -2)], 'wire'),                                     // mic 3 (back right)
+);
+
 model.rotation.z = deg(0.3);                                                // not perfectly level: less CGI
-const occluders = [], roleMeshes = { acetate: [], metal: [], lens: [], board: [] };
+const occluders = [], roleMeshes = { acetate: [], metal: [], lens: [] };
 model.traverse(o => {
   if (!o.isMesh) return;
   if (o.userData.occlude) occluders.push(o);
   if (roleMeshes[o.userData.role]) roleMeshes[o.userData.role].push(o);
 });
-// The wearer looks toward +Z, so the wearer's RIGHT is -X (the mirrored half) and +X is their left.
 const ANCHORS = {
   mic_fr: halfL.getObjectByName('anchor_mic_front'), mic_fl: halfR.getObjectByName('anchor_mic_front'),
   mic_br: halfL.getObjectByName('anchor_mic_back'),  mic_bl: halfR.getObjectByName('anchor_mic_back'),
   camera: frontC.getObjectByName('anchor_camera'),
+  mcu: model.getObjectByName('anchor_mcu'), battery: model.getObjectByName('anchor_battery'),
 };
 
 // ============================================================ E. renderer, backdrop, lights, camera
@@ -681,18 +784,22 @@ spot.rotation.x = -Math.PI / 2; spot.position.set(0, GROUND_Y - 0.3, -40); spot.
 scene.add(spot);
 
 const camera = new THREE.PerspectiveCamera(32, 1, 1, 4000);
-const PRESETS = { quarter: [175, 95, 265], front: [0, 20, 330], side: [330, 25, -10], top: [0.5, 520, -20], inside: [-60, 40, -330] };
+// offsets from TARGET; 'left'/'right' are the wearer's sides (battery / ESP32-S3), 'side' is a deep-link alias
+const PRESETS = { quarter: [175, 95, 265], front: [0, 20, 330], left: [330, 25, -10], right: [-330, 25, -10],
+                  top: [0.5, 520, -20], inside: [-60, 40, -330] };
+PRESETS.side = PRESETS.left;
 camera.position.copy(TARGET).add(vec(PRESETS.quarter));
 const controls = new OrbitControls(camera, canvas);
 controls.target.copy(TARGET);
 Object.assign(controls, { enableDamping: true, dampingFactor: 0.07, enablePan: false, minDistance: 120, maxDistance: 1200,
-                          minPolarAngle: 0.02, maxPolarAngle: 1.7, autoRotate: !reducedMotion, autoRotateSpeed: 0.8 });
+                          minPolarAngle: 0.02, maxPolarAngle: 1.95, autoRotate: !reducedMotion, autoRotateSpeed: 0.8 });  // ~20° below the floor: enough to see the charge port
 controls.update();
 
 // ============================================================ F. hotspot labels
 const labelRenderer = new CSS2DRenderer({ element: document.getElementById('labels') });
 const LABELS = [['mic_fr', 'Mic 1 · front right'], ['mic_fl', 'Mic 2 · front left'], ['mic_br', 'Mic 3 · back right'],
-                ['mic_bl', 'Mic 4 · back left'], ['camera', 'Camera · bridge']];
+                ['mic_bl', 'Mic 4 · back left'], ['camera', 'Camera · bridge'],
+                ['mcu', 'ESP32-S3 · right temple'], ['battery', 'Battery · left temple']];
 const labels = LABELS.map(([key, text]) => {
   const el = document.createElement('div'); el.className = 'hs';
   el.innerHTML = `<span>${text}</span><i class="stem"></i><i class="dot"></i>`;
@@ -720,7 +827,7 @@ function setFinish(f) {
   finish = f;
   roleMeshes.acetate.forEach(m => { m.material = FINISHES[f].acetate; });
   roleMeshes.metal.forEach(m => { m.material = FINISHES[f].metal; });
-  roleMeshes.board.forEach(m => { m.visible = f === 'crystal'; });
+  electronics.visible = f === 'crystal';
   press('finish', f);
 }
 function setLens(k) { roleMeshes.lens.forEach(m => { m.material = LENSES[k]; }); press('lens', k); }
@@ -773,11 +880,11 @@ $('#btn-rotate').addEventListener('click', () => {
 });
 $('#btn-theme').addEventListener('click', () => applyTheme(theme === 'dark' ? 'light' : 'dark'));
 if (location.pathname === '/rendering') $('#backlink').hidden = false;
-const VIEWS = ['quarter', 'front', 'side', 'top', 'inside'], FIN = ['matte', 'gloss', 'crystal'];
+const VIEWS = ['quarter', 'front', 'left', 'right', 'top', 'inside'], FIN = ['matte', 'gloss', 'crystal'];
 addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('input,select,textarea'))) return;
   const k = e.key.toLowerCase();
-  if (k >= '1' && k <= '5') flyTo(VIEWS[+k - 1]);
+  if (k >= '1' && k <= '6') flyTo(VIEWS[+k - 1]);
   else if (k === 'r') { if (!autoWanted) $('#btn-rotate').click(); flyTo('quarter'); }
   else if (k === 'l') setLabels(!labelsOn);
   else if (k === 'a') $('#btn-rotate').click();
@@ -912,7 +1019,8 @@ function loop() {
   const dt = Math.min(clock.getDelta(), 0.1), now = performance.now();
   if (flight) stepFlight(now); else controls.update(dt);
   stepCue(now, dt);
-  if (labelsOn && frame++ % 4 === 0) updateLabels();
+  if (labelsOn && frame % 4 === 0) updateLabels();
+  frame++;
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
   if (DEBUG && (frame < 4 || frame % 30 === 0)) console.log('[sr] frame', frame, 't', performance.now().toFixed(0),
@@ -923,17 +1031,20 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { cl
 
 applyTheme(theme); setFinish('matte'); setLens('clear'); setLabels(true);
 
-// Deep links, e.g. ?view=side&finish=gloss&lens=tinted&theme=light&labels=0&rotate=0&sim=left&class=dog
+// Deep links, e.g. ?view=right&finish=crystal&lens=tinted&theme=light&labels=0&rotate=0&sim=left&class=dog
+// ?cam=x,y,z puts the camera at that offset from the orbit target (mm), for views no preset covers.
 const q = k => params.get(k);
 if (q('theme') === 'light' || q('theme') === 'dark') applyTheme(q('theme'));
 if (FIN.includes(q('finish'))) setFinish(q('finish'));
 if (q('lens') === 'tinted') setLens('tinted');
 if (q('labels') === '0') setLabels(false);
 if (q('rotate') === '0') { autoWanted = false; controls.autoRotate = false; $('#btn-rotate').setAttribute('aria-pressed', 'false'); }
-if (VIEWS.includes(q('view'))) {
+if (q('view') in PRESETS) {
   camera.position.copy(controls.target).add(vec(PRESETS[q('view')]).multiplyScalar(camera.aspect < 1 ? 1.4 : 1));
-  controls.update(); press('view', q('view'));
+  controls.update(); press('view', q('view') === 'side' ? 'left' : q('view'));
 }
+const camQ = (q('cam') || '').split(',').map(Number);
+if (camQ.length === 3 && camQ.every(Number.isFinite)) { camera.position.copy(controls.target).add(vec(camQ)); controls.update(); press('view', ''); }
 if (q('sim') in BEARINGS) triggerCue(q('sim'), q('class') || 'siren', 1, 1e9, true);
 
 renderer.shadowMap.needsUpdate = true;

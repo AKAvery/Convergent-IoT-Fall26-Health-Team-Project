@@ -24,7 +24,8 @@ Microphone → Terminal/VS Code), then clap, talk, play a siren off YouTube on y
 - "Recent" list on the right.
 - Top-3 guesses in small text (useful for seeing *why* it's unsure).
 - http://localhost:5050/rendering: a rotatable 3D concept of the glasses frame (4 mics, bridge
-  camera). It polls the same `/state` feed and draws each detected sound as a glowing arc on the
+  camera, ESP32-S3 and battery in the temples; the Crystal finish shows the electronics and
+  wiring). It polls the same `/state` feed and draws each detected sound as a glowing arc on the
   floor at its bearing. The page is `docs/rendering/index.html`; it also opens on its own.
 
 **Direction:** laptop mics are mono to apps, so the ring just pulses. If you plug in a
