@@ -14,7 +14,7 @@ import sys, json, math, time, threading, collections
 from pathlib import Path
 import numpy as np
 import sounddevice as sd
-from flask import Flask, jsonify, Response
+from flask import Flask, jsonify, Response, send_from_directory
 
 try:
     import tflite_runtime.interpreter as tflite
@@ -22,6 +22,7 @@ except ImportError:
     import tensorflow.lite as tflite
 
 PI_DIR = Path(__file__).resolve().parent.parent / "pi"
+RENDER_DIR = Path(__file__).resolve().parent.parent / "docs" / "rendering"   # 3D glasses concept page
 SAMPLE_RATE = 16000
 WINDOW = 15600
 BUFFER_SECONDS = 1.0
@@ -141,6 +142,16 @@ def get_state():
     with lock:
         return jsonify(state)
 
+@app.route("/rendering")
+def rendering():
+    """Interactive 3D concept of the glasses frame (docs/rendering/); it polls /state to show live sounds."""
+    return send_from_directory(RENDER_DIR, "index.html", max_age=0)
+
+@app.route("/rendering/<path:filename>")
+def rendering_asset(filename):
+    """Extra files next to the page, e.g. a CAD export loaded with /rendering?model=frame.glb."""
+    return send_from_directory(RENDER_DIR, filename, max_age=0)
+
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>Sound Ring live</title>
 <style>
 body{margin:0;background:#0b0f14;color:#eee;font-family:-apple-system,Helvetica,Arial,sans-serif;display:flex;height:100vh}
@@ -173,7 +184,9 @@ small{color:#667}
   <div id="top3"></div>
   <small style="margin-top:20px">front = up · laptop mic gives left/right only</small>
 </div>
-<div id="right"><h1>RECENT</h1><div id="hist"></div></div>
+<div id="right"><h1>RECENT</h1><div id="hist"></div>
+  <p style="margin-top:24px"><a href="/rendering" style="color:#9aa;font-size:12px;letter-spacing:.08em;text-transform:uppercase;text-decoration:none">3D glasses concept →</a></p>
+</div>
 <script>
 const C=%COLORS%;
 const ticks=document.getElementById('ticks');

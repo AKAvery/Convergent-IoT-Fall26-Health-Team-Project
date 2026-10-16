@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sound Ring glasses</title>
+<meta name="description" content="Interactive 3D concept of the Sound Ring smart-glasses frame: four microphones at the corners, a camera in the bridge.">
+<!--
+  Sound Ring — glasses concept render.
+  Self-contained: open this file directly, serve it with `python3 -m http.server`, or visit
+  http://localhost:5050/rendering while demo/live_demo.py runs. Three.js comes from jsDelivr.
+  Model is procedural (no CAD yet); `?model=frame.glb` swaps in a real export when one exists.
+  Units are millimetres. +Y up, +Z = where the wearer looks, so the wearer's right is -X. The default camera
+  faces the wearer, which puts their right on the viewer's left, as when you look at a person.
+-->
+<style>
+:root{
+  --bg:#0b0f14; --fg:#eee; --muted:#9aa; --dim:#667; --line:#1c232b; --line2:#2a333d;
+  --panel:rgba(11,15,20,.74); --pill:#121922; --accent:#2ecc71; --accent-fg:#06130b;
+  --font:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#eef1f5; --fg:#14181d; --muted:#5b6670; --dim:#8a949d; --line:#d0d6dd; --line2:#c0c8d0;
+  --panel:rgba(255,255,255,.8); --pill:#fff; --accent:#1f9d55; --accent-fg:#fff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);overflow:hidden;-webkit-font-smoothing:antialiased}
+a{color:var(--muted)}
+#stage{position:fixed;inset:0;height:100vh;height:100dvh}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+#labels{position:absolute;inset:0;pointer-events:none;z-index:2}
+#loading{position:absolute;inset:0;z-index:5;display:grid;place-items:center;color:var(--muted);
+  font-size:12px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none;transition:opacity .5s}
+#loading.off{opacity:0;visibility:hidden;transition:opacity .5s,visibility 0s .5s}
+
+/* hotspot labels (CSS2DRenderer owns the root element's transform; style the children) */
+.hs{display:flex;flex-direction:column;align-items:center;pointer-events:none;transition:opacity .25s}
+.hs span{font:500 11px/1.2 var(--font);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
+  color:var(--fg);background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:4px 9px;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.hs .stem{width:1px;height:14px;background:var(--line2)}
+.hs .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg)}
+
+/* heads-up text */
+#hud{position:absolute;left:20px;top:18px;z-index:10;pointer-events:none;max-width:min(520px,calc(100% - 32px))}
+#hud h1{margin:0;font-size:18px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+#hud p{margin:6px 0 0;font-size:12px;color:var(--dim);line-height:1.5}
+#hud a{pointer-events:auto;display:inline-block;margin-top:8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;text-decoration:none}
+#hud a[hidden]{display:none}
+
+/* control panel */
+#panel{position:absolute;left:20px;bottom:20px;z-index:10;width:312px;padding:10px 14px 12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.row b{flex:none;width:50px;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pill{font:500 12px/1 var(--font);padding:7px 10px;border-radius:999px;border:1px solid var(--line2);
+  background:var(--pill);color:var(--fg);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.pill:hover{border-color:var(--muted)}
+.pill[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+.pill:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select{font:500 12px/1 var(--font);padding:6px 8px;border-radius:999px;border:1px solid var(--line2);background:var(--pill);color:var(--fg)}
+#live{display:none;align-items:center;gap:6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-left:auto}
+#live.on{display:inline-flex}
+#live i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+kbd{font:inherit;color:var(--dim)}
+
+/* caption */
+#cap{position:absolute;right:20px;bottom:20px;z-index:10;max-width:360px;margin:0;font-size:12px;line-height:1.5;
+  color:var(--muted);text-align:right;pointer-events:none}
+#cap a{pointer-events:auto}
+
+/* fallback when WebGL / the CDN is unavailable */
+#fallback{display:none;position:absolute;inset:0;z-index:20;place-items:center;padding:24px;text-align:center;background:var(--bg)}
+#fallback.on{display:grid}
+#fallback div{max-width:420px;font-size:14px;line-height:1.6;color:var(--muted)}
+#fallback h2{margin:0 0 8px;font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg)}
+
+@media (max-width:720px){
+  #hud{left:16px;top:14px;right:16px}
+  #hud h1{font-size:14px}
+  #hud p{font-size:11px}
+  #panel{left:0;right:0;bottom:0;width:auto;border-radius:16px 16px 0 0;max-height:42dvh;overflow:auto;
+    padding:8px 16px calc(10px + env(safe-area-inset-bottom))}
+  .row b{width:44px}
+  #cap{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl" tabindex="-1"></canvas>
+  <div id="labels"></div>
+  <div id="loading">Loading model…</div>
+
+  <header id="hud">
+    <h1>Sound Ring · glasses concept</h1>
+    <p>4 microphones at the corners · camera in the bridge · drag to rotate, scroll to zoom · left/right are the wearer's</p>
+    <a id="backlink" href="/" hidden>← live demo</a>
+  </header>
+
+  <aside id="panel" aria-label="Render controls">
+    <div class="row" role="group" aria-label="View"><b>View</b>
+      <button class="pill" data-view="quarter" aria-pressed="true" title="key 1">3/4</button>
+      <button class="pill" data-view="front" aria-pressed="false" title="key 2">Front</button>
+      <button class="pill" data-view="side" aria-pressed="false" title="key 3">Side</button>
+      <button class="pill" data-view="top" aria-pressed="false" title="key 4">Top</button>
+      <button class="pill" data-view="inside" aria-pressed="false" title="key 5">Inside</button>
+    </div>
+    <div class="row" role="group" aria-label="Frame finish"><b>Finish</b>
+      <button class="pill" data-finish="matte" aria-pressed="true" title="key F cycles">Matte</button>
+      <button class="pill" data-finish="gloss" aria-pressed="false">Gloss</button>
+      <button class="pill" data-finish="crystal" aria-pressed="false">Crystal</button>
+    </div>
+    <div class="row" role="group" aria-label="Lens"><b>Lens</b>
+      <button class="pill" data-lens="clear" aria-pressed="true">Clear</button>
+      <button class="pill" data-lens="tinted" aria-pressed="false">Tinted</button>
+    </div>
+    <div class="row" role="group" aria-label="Display"><b>Show</b>
+      <button class="pill" id="btn-labels" aria-pressed="true" title="key L">Labels</button>
+      <button class="pill" id="btn-rotate" aria-pressed="true" title="key A">Auto-rotate</button>
+      <button class="pill" id="btn-theme" aria-pressed="false" title="key T">Light</button>
+    </div>
+    <div class="row" role="group" aria-label="Simulate a sound" id="row-sim"><b>Sound</b>
+      <button class="pill" data-sim="left">Left</button>
+      <button class="pill" data-sim="right">Right</button>
+      <button class="pill" data-sim="behind">Behind</button>
+      <button class="pill" data-sim="off">Off</button>
+      <select id="sim-class" aria-label="Sound type"></select>
+      <span id="live" title="Lit from live detections (/state)"><i></i>live</span>
+    </div>
+  </aside>
+
+  <p id="cap">
+    Procedural concept, not the final industrial design. Parts per
+    <a href="../hardware-bom.md">hardware-bom.md</a>: 4× INMP441 MEMS mics (front-left, front-right,
+    back-left, back-right, ports facing up), OV2640 camera in the bridge, ESP32-S3 and battery inside the temples.
+  </p>
+
+  <div id="fallback" role="alert">
+    <div>
+      <h2>3D view unavailable</h2>
+      <span id="fb-msg">This browser could not start the 3D render.</span><br><br>
+      The static mockups still work: <a href="../mockup.svg">mockup.svg</a> ·
+      <a href="../clip_mockup.svg">clip_mockup.svg</a> · <a href="../pov_mockup.svg">pov_mockup.svg</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// Bootstrap (classic script): theme before first paint, capability checks, CDN watchdog.
+(function () {
+  try {
+    var t = localStorage.getItem('sr-theme');
+    if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+  } catch (e) {}
+  var fb = document.getElementById('fallback'), msg = document.getElementById('fb-msg');
+  function fail(why) {
+    if (why) msg.textContent = why;
+    fb.classList.add('on');
+    document.getElementById('loading').classList.add('off');
+  }
+  window.__renderFail = fail;
+  var probe = document.createElement('canvas').getContext('webgl2');
+  if (!probe) { fail('This browser has no WebGL2, which the 3D library needs.'); return; }
+  if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'))) {
+    fail('This browser is too old for import maps (needs Safari 16.4+, Chrome 89+, Firefox 108+).'); return;
+  }
+  setTimeout(function () { if (!window.__sceneReady) fail('The 3D library did not load within 10 s (offline, or the CDN is blocked).'); }, 10000);
+  document.getElementById('gl').addEventListener('webglcontextlost', function () { fail('The WebGL context was lost. Reload the page.'); });
+})();
+</script>
+
+<script type="module" onerror="window.__renderFail('The 3D library failed to load from the CDN.')">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// ============================================================ A. flags + constants
+const params = new URLSearchParams(location.search);
+const FEATURES = {
+  sim:   !params.has('nosim'),                       // "simulate a sound" row
+  live:  location.protocol.startsWith('http') && !params.has('nolive'),
+  glb:   params.has('model'),
+};
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarsePointer = matchMedia('(pointer: coarse)').matches;
+const lensSimple = params.get('lens') === 'simple';   // opt-out of refraction for weak GPUs
+
+// Keep in sync with COLORS in demo/live_demo.py
+const SOUND_COLORS = {
+  siren: '#ff2d2d', alarm: '#ff2d2d', car_horn: '#ff6a00', glass_break: '#b400ff',
+  dog: '#ffa000', cat: '#ffa000', baby_cry: '#ff64c8', knock: '#00c8ff',
+  clap: '#ffffff', footsteps: '#ffff00', speech: '#2ecc71', appliance: '#0050ff', other: '#555555',
+};
+
+// Frame dimensions (mm). Ray-Ban Meta Wayfarer-class: lens 53x44, bridge 22, temples 150.
+const LENS_X = 37;            // lens centre from the midline
+const WRAP_R = 400;           // face-form wrap radius (cylindrical, about Y)
+const LENS_R = 110;           // per-lens base curve (spherical, ~base 5)
+const RIM_W = 4.5;            // rim width around the lens
+const TILT = THREE.MathUtils.degToRad(8);   // pantoscopic tilt
+const TARGET = new THREE.Vector3(0, 4, -45);
+const GROUND_Y = -36;
+
+// Right-lens outline, lens-local, CCW from the front. r = corner radius.
+const LENS = [
+  { x:  27.0, y:  21.5, r:  5.0 }, // outer-top horn (highest point)
+  { x: -22.5, y:  18.0, r:  8.0 }, // inner-top (brow slopes toward the nose)
+  { x: -26.0, y:   0.5, r: 14.0 }, // nasal mid
+  { x: -19.0, y: -20.0, r:  9.0 }, // inner-bottom (trapezoid: bottom narrower)
+  { x:   6.0, y: -22.5, r: 12.0 }, // bottom, lowest point slightly temporal
+  { x:  21.0, y: -15.5, r:  6.5 }, // outer-bottom
+];
+
+// ============================================================ B. geometry helpers
+const V2 = (x, y) => ({ x, y });
+const sub = (a, b) => V2(a.x - b.x, a.y - b.y), add = (a, b) => V2(a.x + b.x, a.y + b.y);
+const mul = (a, k) => V2(a.x * k, a.y * k), vlen = a => Math.hypot(a.x, a.y);
+const nrm = a => mul(a, 1 / (vlen(a) || 1)), dot2 = (a, b) => a.x * b.x + a.y * b.y;
+const lerp = (a, b, k) => a + (b - a) * k;
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const deg = THREE.MathUtils.degToRad;
+
+// Round the corners of a control polygon [{x,y,r}] (CCW, convex corners) -> dense [{x,y}].
+function roundCorners(poly, n = 10) {
+  const N = poly.length, out = [];
+  for (let i = 0; i < N; i++) {
+    const p0 = poly[(i + N - 1) % N], p1 = poly[i], p2 = poly[(i + 1) % N], r0 = p1.r || 0;
+    if (r0 <= 0) { out.push(V2(p1.x, p1.y)); continue; }
+    const a = nrm(sub(p0, p1)), b = nrm(sub(p2, p1));
+    const theta = Math.acos(clamp(dot2(a, b), -1, 1));          // interior angle
+    let t = r0 / Math.tan(theta / 2), r = r0;
+    const tMax = 0.5 * Math.min(vlen(sub(p0, p1)), vlen(sub(p2, p1)));
+    if (t > tMax) { r = r0 * tMax / t; t = tMax; }               // shrink r when the edges are short
+    const c = add(p1, mul(nrm(add(a, b)), r / Math.sin(theta / 2)));
+    const s = add(p1, mul(a, t)), e = add(p1, mul(b, t));
+    const a0 = Math.atan2(s.y - c.y, s.x - c.x);
+    let da = Math.atan2(e.y - c.y, e.x - c.x) - a0;
+    da = Math.atan2(Math.sin(da), Math.cos(da));                 // shortest way round
+    for (let k = 0; k <= n; k++) {
+      const g = a0 + da * k / n;
+      out.push(V2(c.x + r * Math.cos(g), c.y + r * Math.sin(g)));
+    }
+  }
+  return out;
+}
+
+// Miter-offset a control polygon by d (positive = outward for CCW). Corner radii grow by d.
+function offsetPolygon(poly, d) {
+  const N = poly.length, out = [];
+  for (let i = 0; i < N; i++) {
+    const p0 = poly[(i + N - 1) % N], p1 = poly[i], p2 = poly[(i + 1) % N];
+    const e1 = nrm(sub(p1, p0)), e2 = nrm(sub(p2, p1));
+    const n1 = V2(e1.y, -e1.x), n2 = V2(e2.y, -e2.x);            // outward normals of a CCW polygon
+    let bis = add(n1, n2);
+    const bl = vlen(bis);
+    if (bl < 1e-6) { out.push({ x: p1.x + n1.x * d, y: p1.y + n1.y * d, r: p1.r }); continue; }
+    bis = mul(bis, 1 / bl);
+    const m = d / Math.max(dot2(bis, n1), 0.3);                   // miter length, clamped
+    out.push({ x: p1.x + bis.x * m, y: p1.y + bis.y * m, r: Math.max(0, (p1.r || 0) + d) });
+  }
+  return out;
+}
+const offsetRounded = (poly, d, n) => roundCorners(offsetPolygon(poly, d), n);
+
+function toShape(outer, holes = []) {
+  const s = new THREE.Shape(outer.map(p => new THREE.Vector2(p.x, p.y)));
+  for (const h of holes) s.holes.push(new THREE.Path(h.map(p => new THREE.Vector2(p.x, p.y))));
+  return s;
+}
+
+// Smooth normals + planar UVs for extrusions (ExtrudeGeometry is non-indexed and flat-shaded).
+function finalize(geo, uvScale = 0.1) {
+  geo.deleteAttribute('uv'); geo.deleteAttribute('normal');
+  geo = mergeVertices(geo, 1e-3);
+  geo.computeVertexNormals();
+  const p = geo.attributes.position, n = geo.attributes.normal, uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i));
+    let u, v;
+    if (az >= ax && az >= ay) { u = p.getX(i); v = p.getY(i); }
+    else if (ax >= ay)        { u = p.getZ(i); v = p.getY(i); }
+    else                      { u = p.getX(i); v = p.getZ(i); }
+    uv[2 * i] = u * uvScale; uv[2 * i + 1] = v * uvScale;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
+
+// Face-form wrap + lens base curve as one height field; the whole front is sheared back by sag(x, y).
+const sag = (x, y) => {
+  const dx = Math.max(Math.abs(x) - LENS_X, -27);        // the dome stops at the nasal edge: bridge stays level
+  return (WRAP_R - Math.sqrt(Math.max(0, WRAP_R * WRAP_R - x * x)))
+       + (LENS_R - Math.sqrt(Math.max(0, LENS_R * LENS_R - dx * dx - y * y)));
+};
+// z' = z - sag(x, y). Normals through the inverse-transpose of the shear: n' = (nx + fx nz, ny + fy nz, nz).
+function warpFront(geo) {
+  const p = geo.attributes.position, n = geo.attributes.normal, h = 0.01, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i);
+    const fx = (sag(x + h, y) - sag(x - h, y)) / (2 * h), fy = (sag(x, y + h) - sag(x, y - h)) / (2 * h);
+    p.setZ(i, p.getZ(i) - sag(x, y));
+    const nz = n.getZ(i);
+    v.set(n.getX(i) + fx * nz, n.getY(i) + fy * nz, nz).normalize();
+    n.setXYZ(i, v.x, v.y, v.z);
+  }
+  p.needsUpdate = n.needsUpdate = true;
+  geo.computeBoundingSphere(); geo.computeBoundingBox();
+  return geo;
+}
+// Tangent slope of the warp along x (for parts that are placed, not warped).
+const sagSlopeX = (x, y, h = 0.01) => (sag(x + h, y) - sag(x - h, y)) / (2 * h);
+
+// Sweep a closed profile along a curve with fixed-up frames (no twist). profileFn(t) -> [{x:u, y:v}],
+// CCW as seen looking along the tangent; u -> S (sideways), v -> U (up); same point count for every t.
+function sweep(curve, profileFn, { segments = 120, cap = true, uvScale = 0.1, tArray = null } = {}) {
+  const UP = new THREE.Vector3(0, 1, 0);
+  const ts = tArray || Array.from({ length: segments + 1 }, (_, i) => i / segments);
+  const K = profileFn(0).length, L = curve.getLength();
+  const pos = [], uv = [], idx = [];
+  const P = new THREE.Vector3(), T = new THREE.Vector3(), S = new THREE.Vector3(), U = new THREE.Vector3(), Q = new THREE.Vector3();
+  ts.forEach((t, i) => {
+    curve.getPointAt(t, P); curve.getTangentAt(t, T);
+    S.crossVectors(T, UP).normalize(); U.crossVectors(S, T).normalize();
+    const prof = profileFn(t);
+    for (let k = 0; k < K; k++) {
+      Q.copy(P).addScaledVector(S, prof[k].x).addScaledVector(U, prof[k].y);
+      pos.push(Q.x, Q.y, Q.z); uv.push(k / K, t * L * uvScale);
+    }
+    if (i < ts.length - 1) for (let k = 0; k < K; k++) {
+      const a = i * K + k, b = i * K + (k + 1) % K, c = a + K, d = b + K;
+      idx.push(a, c, b, b, c, d);                                 // outward for a CCW profile
+    }
+  });
+  if (cap) {                                                      // fan at the tip; the start hides in the hinge
+    const i0 = (ts.length - 1) * K, c = pos.length / 3;
+    curve.getPointAt(1, P); pos.push(P.x, P.y, P.z); uv.push(0.5, 0.5);
+    for (let k = 0; k < K; k++) idx.push(i0 + (k + 1) % K, i0 + k, c);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
+// Frame of the sweep at t (same construction as above), for placing things on a temple.
+function frameAt(curve, t) {
+  const P = curve.getPointAt(t), T = curve.getTangentAt(t);
+  const S = new THREE.Vector3().crossVectors(T, new THREE.Vector3(0, 1, 0)).normalize();
+  const U = new THREE.Vector3().crossVectors(S, T).normalize();
+  return { P, T, S, U };
+}
+
+// Rounded rectangle profile, CCW from the top-right corner; outer corners (u > 0) rounder than inner.
+function roundedRect(w, h, rOut, rIn = rOut, n = 6) {
+  return roundCorners([
+    { x:  w / 2, y:  h / 2, r: rOut }, { x: -w / 2, y:  h / 2, r: rIn },
+    { x: -w / 2, y: -h / 2, r: rIn },  { x:  w / 2, y: -h / 2, r: rOut },
+  ], n);
+}
+const templeH = t => (t < 0.35 ? 10 : lerp(10, 5, (t - 0.35) / 0.65));     // height (chunky until the mic)
+const templeW = t => (t < 0.45 ? 6 : lerp(6, 3.6, (t - 0.45) / 0.55));      // thickness
+function templeProfile(t) {
+  const s = t > 0.975 ? Math.max(0.03, Math.sqrt(Math.max(0, 1 - ((t - 0.975) / 0.025) ** 2))) : 1;
+  const w = templeW(t) * s, h = templeH(t) * s, m = Math.min(w, h);
+  return roundedRect(w, h, m * 0.42, m * 0.18, 6);
+}
+
+// Blurred grey noise for roughness/bump breakup on the plastic.
+function noiseTexture(size = 256) {
+  const small = document.createElement('canvas'); small.width = small.height = 64;
+  const sctx = small.getContext('2d'), img = sctx.createImageData(64, 64);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = 200 + (Math.random() - 0.5) * 36;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+  }
+  sctx.putImageData(img, 0, 0);
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(small, 0, 0, size, size);
+  const fine = ctx.getImageData(0, 0, size, size);
+  for (let i = 0; i < fine.data.length; i += 4) {
+    const d = (Math.random() - 0.5) * 30;
+    fine.data[i] += d; fine.data[i + 1] += d; fine.data[i + 2] += d;
+  }
+  ctx.putImageData(fine, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.NoColorSpace;
+  return tex;
+}
+
+// Soft radial blob (contact shadow sprites, LED glow billboards).
+function radialTexture(size = 128, inner = 'rgba(0,0,0,1)', outer = 'rgba(0,0,0,0)') {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const ctx = c.getContext('2d'), g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, inner); g.addColorStop(1, outer);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// ============================================================ C. materials
+const noise = noiseTexture();
+const mkAcetate = o => new THREE.MeshPhysicalMaterial(Object.assign({ metalness: 0 }, o));
+const FINISHES = {
+  matte: {
+    acetate: mkAcetate({ color: '#0d0d0f', roughness: 0.7, roughnessMap: noise, clearcoat: 0.2, clearcoatRoughness: 0.45,
+                         sheen: 0.06, sheenRoughness: 0.7, sheenColor: '#ffffff', bumpMap: noise, bumpScale: 0.03 }),
+    metal: new THREE.MeshStandardMaterial({ color: '#2b2f34', metalness: 1, roughness: 0.32 }),
+  },
+  gloss: {
+    acetate: mkAcetate({ color: '#0a0a0a', roughness: 0.22, roughnessMap: noise, clearcoat: 1, clearcoatRoughness: 0.07,
+                         bumpMap: noise, bumpScale: 0.008, envMapIntensity: 1.2 }),
+    metal: new THREE.MeshStandardMaterial({ color: '#3a4046', metalness: 1, roughness: 0.25 }),
+  },
+  crystal: {
+    acetate: mkAcetate({ color: '#dfe6ea', transmission: 0.9, thickness: 4, ior: 1.49, roughness: 0.1,
+                         attenuationColor: '#c3ced6', attenuationDistance: 30, clearcoat: 1, clearcoatRoughness: 0.04 }),
+    metal: new THREE.MeshStandardMaterial({ color: '#b8bec4', metalness: 1, roughness: 0.25 }),
+  },
+};
+const MAT = {
+  rivet: new THREE.MeshStandardMaterial({ color: '#c9ced3', metalness: 1, roughness: 0.28 }),
+  recess: new THREE.MeshStandardMaterial({ color: '#050505', roughness: 0.95 }),
+  camGlass: new THREE.MeshPhysicalMaterial({ color: '#0d1014', roughness: 0.03, clearcoat: 1, clearcoatRoughness: 0.02,
+              iridescence: 1, iridescenceIOR: 1.3, iridescenceThicknessRange: [100, 400], envMapIntensity: 1.5 }),
+  camRing: new THREE.MeshStandardMaterial({ color: '#3a3f45', metalness: 1, roughness: 0.35 }),
+  privacyLed: new THREE.MeshStandardMaterial({ color: '#e8e8e8', emissive: '#ffffff', emissiveIntensity: 0.4, roughness: 0.3 }),
+  board: new THREE.MeshStandardMaterial({ color: '#1a1d20', roughness: 0.6 }),
+};
+function lensMaterial(kind) {
+  if (lensSimple) {                               // cheap path: tinted coated glass, no refraction
+    return new THREE.MeshPhysicalMaterial(kind === 'tinted'
+      ? { color: '#1b2924', transparent: true, opacity: 0.85, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03, depthWrite: false, envMapIntensity: 1.5 }
+      : { color: '#dfe9ee', transparent: true, opacity: 0.28, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03, depthWrite: false, envMapIntensity: 1.5 });
+  }
+  // no clearcoat here: a second specular layer on top of the glass would double the reflections
+  const base = { transmission: 1, ior: 1.5, thickness: 2.2, roughness: 0.03, envMapIntensity: 1.0 };
+  return new THREE.MeshPhysicalMaterial(kind === 'tinted'
+    ? { ...base, color: '#9aa8a0', attenuationColor: '#34493f', attenuationDistance: 4 }
+    : { ...base, color: '#e6ecef', attenuationColor: '#cdd8de', attenuationDistance: 6 });
+}
+const LENSES = { clear: lensMaterial('clear'), tinted: lensMaterial('tinted') };
+
+// ============================================================ D. model (right half, then mirrored)
+const Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
+function part(geo, role, { cast = true, receive = true, occlude = true } = {}) {
+  const mat = role === 'acetate' ? FINISHES.matte.acetate : role === 'metal' ? FINISHES.matte.metal : MAT[role];
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = cast; m.receiveShadow = receive;
+  m.userData.role = role; m.userData.occlude = occlude;
+  return m;
+}
+function anchor(name, x = 0, y = 0, z = 0) { const o = new THREE.Object3D(); o.name = name; o.position.set(x, y, z); return o; }
+function micPort() {                             // origin on the surface, +Y = surface normal
+  const g = new THREE.Group();
+  const hole = part(new THREE.CylinderGeometry(1.15, 1.15, 0.2, 24), 'recess', { cast: false, occlude: false });
+  hole.position.y = 0.1; g.add(hole);
+  const bezel = part(new THREE.TorusGeometry(1.45, 0.3, 10, 32), 'metal', { cast: false, occlude: false });
+  bezel.rotation.x = Math.PI / 2; g.add(bezel);
+  return g;
+}
+const vec = a => new THREE.Vector3(a[0], a[1], a[2]);
+
+const model = new THREE.Group(); model.name = 'glasses';
+const halfR = new THREE.Group(); halfR.name = 'halfR';
+const frontR = new THREE.Group(); frontR.name = 'frontR'; frontR.rotation.x = TILT;
+halfR.add(frontR);
+
+// rim: extruded ring (outer outline minus the lens hole), smoothed, then wrapped
+const rimOuterCtrl = offsetPolygon(LENS, RIM_W);
+rimOuterCtrl[0].y += 1.5; rimOuterCtrl[1].y += 1.2;                       // heavier brow bar
+const rimOuter = roundCorners(rimOuterCtrl, 12), rimHole = offsetRounded(LENS, -0.5, 12);
+let rimGeo = new THREE.ExtrudeGeometry(toShape(rimOuter, [rimHole]),
+  { depth: 3.2, bevelEnabled: true, bevelThickness: 0.9, bevelSize: 0.9, bevelOffset: -0.9, bevelSegments: 6, curveSegments: 1 });
+rimGeo.translate(LENS_X, 0, -1.6);                                          // z in [-2.5, 2.5]
+rimGeo = warpFront(finalize(rimGeo));
+frontR.add(part(rimGeo, 'acetate'));
+
+// lens: its edge sits 0.5 mm inside the rim wall, so no coplanar faces anywhere
+const lensGeo = new THREE.ExtrudeGeometry(toShape(roundCorners(LENS, 14)), { depth: 2.2, bevelEnabled: false, curveSegments: 1 });
+lensGeo.translate(LENS_X, 0, -0.9);
+warpFront(lensGeo);
+const lensR = new THREE.Mesh(lensGeo, LENSES.clear);
+lensR.renderOrder = 10; lensR.castShadow = false; lensR.userData.role = 'lens';
+frontR.add(lensR);
+
+// end piece with rivets, hinge barrel and the front mic
+const EP = { x: 69, y: 22.2 };
+const endPiece = part(new RoundedBoxGeometry(10, 10.5, 6.5, 4, 1.8), 'acetate');
+endPiece.position.set(EP.x, EP.y, -sag(EP.x, EP.y) - 0.75);
+endPiece.rotation.y = Math.atan(sagSlopeX(EP.x, EP.y));
+frontR.add(endPiece);
+for (const dy of [2, -2]) {
+  const r = part(new THREE.SphereGeometry(0.75, 16, 12), 'rivet', { cast: false, occlude: false });
+  r.scale.z = 0.45; r.position.set(-1.5, dy, 3.25); endPiece.add(r);
+}
+const barrel = part(new THREE.CylinderGeometry(1.5, 1.5, 11.5, 24), 'metal', { occlude: false });
+barrel.position.set(4.6, 0, -2.6); endPiece.add(barrel);
+const screw = part(new THREE.CylinderGeometry(1.2, 1.2, 0.4, 24), 'metal', { cast: false, occlude: false });
+screw.position.set(4.6, 5.95, -2.6); endPiece.add(screw);
+const slot = part(new THREE.BoxGeometry(1.8, 0.15, 0.25), 'recess', { cast: false, occlude: false });
+slot.position.set(4.6, 6.1, -2.6); endPiece.add(slot);
+const micFront = micPort(); micFront.position.set(0, 5.25, 0); endPiece.add(micFront);
+endPiece.add(anchor('anchor_mic_front', 0, 5.8, 0));
+
+// moulded nose pad
+const pad = part(new RoundedBoxGeometry(5.5, 11, 3.5, 3, 1.5), 'acetate', { occlude: false });
+pad.position.set(8.5, -3, -2.6 - sag(8.5, -3));
+pad.rotation.set(0, deg(28), deg(-15));
+frontR.add(pad);
+
+// temple: starts 1 mm inside the end piece (measured after the tilt), sweeps back, bends down behind the ear
+halfR.updateMatrixWorld(true);
+const H = endPiece.localToWorld(new THREE.Vector3(5.2, 0, -2.25));
+const templeCurve = new THREE.CatmullRomCurve3(
+  [[0, 0, 0], [1.5, -0.2, -25], [2.5, -0.9, -60], [3, -2, -95], [3, -4.5, -118], [2.5, -12.5, -136], [1.7, -22.5, -146]]
+    .map(a => vec(a).add(H)), false, 'centripetal');
+const tArr = Array.from({ length: 151 }, (_, i) => 0.975 * i / 150).concat([0.98, 0.985, 0.99, 0.994, 0.997, 1]);
+const temple = part(sweep(templeCurve, templeProfile, { tArray: tArr, cap: true }), 'acetate');
+temple.name = 'temple';
+halfR.add(temple);
+{ // back mic on top of the temple, just before the ear bend
+  const f = frameAt(templeCurve, 0.6), m = micPort();
+  m.position.copy(f.P).addScaledVector(f.U, templeH(0.6) / 2);
+  m.quaternion.setFromUnitVectors(Y_AXIS, f.U);
+  temple.add(m);
+  const a = anchor('anchor_mic_back'); a.position.copy(m.position).addScaledVector(f.U, 0.6); temple.add(a);
+}
+for (const t of [0.04]) for (const dy of [2, -2]) {                        // hinge rivets on the outer face
+  const f = frameAt(templeCurve, t);
+  const r = part(new THREE.SphereGeometry(0.75, 16, 12), 'rivet', { cast: false, occlude: false });
+  r.scale.z = 0.45;
+  r.position.copy(f.P).addScaledVector(f.S, templeW(t) / 2).addScaledVector(f.U, dy);
+  r.quaternion.setFromUnitVectors(Z_AXIS, f.S);
+  temple.add(r);
+}
+{ // electronics block, only visible through the crystal finish
+  const f = frameAt(templeCurve, 0.22);
+  const b = part(new RoundedBoxGeometry(4.2, 7.2, 46, 2, 0.8), 'board', { cast: false, occlude: false });
+  b.position.copy(f.P);
+  b.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(f.S, f.U, f.T.clone().negate()));
+  b.visible = false; b.name = 'board';
+  temple.add(b);
+}
+
+// centre: bridge bar and the camera pod
+const frontC = new THREE.Group(); frontC.name = 'frontC'; frontC.rotation.x = TILT;
+const bridgeCurve = new THREE.CatmullRomCurve3(
+  [[-11, 14.5, 0], [-5, 16.5, 0], [0, 17, 0], [5, 16.5, 0], [11, 14.5, 0]].map(vec), false, 'centripetal');
+frontC.add(part(warpFront(sweep(bridgeCurve, () => roundedRect(5, 6, 1.6), { segments: 32, cap: false })), 'acetate'));
+const pod = part(new RoundedBoxGeometry(11, 7.5, 5.5, 4, 1.6), 'acetate');
+pod.position.set(0, 15.5, 1.0 - sag(0, 15.5));
+frontC.add(pod);
+{ // camera stack on the pod's front face (pod-local z = 2.75)
+  const bezel = part(new THREE.TorusGeometry(3.2, 0.35, 16, 48), 'metal', { cast: false, occlude: false });
+  bezel.position.z = 2.75; pod.add(bezel);
+  const glass = part(new THREE.CylinderGeometry(2.8, 2.8, 0.5, 48), 'camGlass', { cast: false, occlude: false });
+  glass.rotation.x = Math.PI / 2; glass.position.z = 2.75; pod.add(glass);
+  const inner = part(new THREE.CylinderGeometry(1.3, 1.3, 0.1, 32), 'recess', { cast: false, occlude: false });
+  inner.rotation.x = Math.PI / 2; inner.position.z = 3.0; pod.add(inner);
+  const ring = part(new THREE.TorusGeometry(1.4, 0.12, 8, 48), 'camRing', { cast: false, occlude: false });
+  ring.position.z = 3.03; pod.add(ring);
+  const led = part(new THREE.SphereGeometry(0.45, 16, 12), 'privacyLed', { cast: false, occlude: false });
+  led.position.set(4.2, 2.4, 2.75); pod.add(led);
+  pod.add(anchor('anchor_camera', 0, 0, 3.4));
+}
+
+// mirror the right half; the clone shares geometries and materials
+const halfL = halfR.clone(); halfL.name = 'halfL'; halfL.scale.x = -1;
+model.add(halfR, halfL, frontC);
+model.rotation.z = deg(0.3);                                                // not perfectly level: less CGI
+const occluders = [], roleMeshes = { acetate: [], metal: [], lens: [], board: [] };
+model.traverse(o => {
+  if (!o.isMesh) return;
+  if (o.userData.occlude) occluders.push(o);
+  if (roleMeshes[o.userData.role]) roleMeshes[o.userData.role].push(o);
+});
+// The wearer looks toward +Z, so the wearer's RIGHT is -X (the mirrored half) and +X is their left.
+const ANCHORS = {
+  mic_fr: halfL.getObjectByName('anchor_mic_front'), mic_fl: halfR.getObjectByName('anchor_mic_front'),
+  mic_br: halfL.getObjectByName('anchor_mic_back'),  mic_bl: halfR.getObjectByName('anchor_mic_back'),
+  camera: frontC.getObjectByName('anchor_camera'),
+};
+
+// ============================================================ E. renderer, backdrop, lights, camera
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.shadowMap.autoUpdate = false;                 // static casters: rendered once, see the end of the file
+noise.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+
+const scene = new THREE.Scene();
+scene.add(model);
+
+// Backdrop sphere instead of a CSS background: an opaque object lands in the transmission buffer,
+// so the lenses actually refract something. Vertex colours = vertical gradient, recoloured per theme.
+const THEMES = {
+  dark:  { bottom: '#171e27', mid: '#1b232d', top: '#090c10', spot: '#28323e', env: 0.9, exposure: 1.0, shadow: 0.6 },
+  light: { bottom: '#d7dde4', mid: '#eef1f5', top: '#f9fafb', spot: '#ffffff', env: 1.2, exposure: 1.05, shadow: 0.32 },
+};
+const backdropGeo = new THREE.SphereGeometry(1500, 32, 24);
+backdropGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(backdropGeo.attributes.position.count * 3), 3));
+const backdrop = new THREE.Mesh(backdropGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, toneMapped: false }));
+scene.add(backdrop);
+function colorBackdrop(t) {
+  const T = THEMES[t], bottom = new THREE.Color(T.bottom), mid = new THREE.Color(T.mid), top = new THREE.Color(T.top), c = new THREE.Color();
+  const pos = backdropGeo.attributes.position, col = backdropGeo.attributes.color;
+  for (let i = 0; i < pos.count; i++) {
+    const k = clamp(pos.getY(i) / 1500 * 0.5 + 0.5, 0, 1);
+    if (k < 0.5) c.copy(bottom).lerp(mid, k / 0.5); else c.copy(mid).lerp(top, Math.pow((k - 0.5) / 0.5, 0.7));
+    col.setXYZ(i, c.r, c.g, c.b);
+  }
+  col.needsUpdate = true;
+}
+
+// Studio environment for reflections: a dark room with a few softboxes, so the lenses and the gloss finish
+// mirror light panels with edges instead of a uniform wash. Baked once into a PMREM cubemap.
+function studioScene() {
+  const s = new THREE.Scene();
+  s.add(new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial({ color: '#26292e', side: THREE.BackSide })));
+  const panel = (w, h, color, intensity, pos) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(intensity), side: THREE.DoubleSide }));
+    m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
+  };
+  panel(8, 5, '#ffffff', 7, [-4, 6, 6]);        // key softbox: high, front-left
+  panel(2.5, 8, '#eef3ff', 4, [8, 2, 3]);       // tall strip: right
+  panel(10, 1.6, '#ffffff', 3, [0, 7, -7]);     // rim strip: high, behind
+  panel(6, 6, '#ffffff', 0.6, [0, -9, 2]);      // floor bounce
+  return s;
+}
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(studioScene(), 0.04).texture;
+pmrem.dispose();
+scene.environmentIntensity = 0.9;
+
+const key = new THREE.DirectionalLight(0xffffff, 2.4);
+key.position.set(60, 130, 90);
+key.target.position.set(0, 0, -50);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -120, right: 120, top: 120, bottom: -120, near: 10, far: 500 });
+key.shadow.camera.updateProjectionMatrix();
+key.shadow.radius = 10; key.shadow.blurSamples = 16; key.shadow.bias = -0.0003; key.shadow.normalBias = 0.3;
+scene.add(key, key.target);
+const fill = new THREE.DirectionalLight(0xdfe8ff, 0.5); fill.position.set(-90, 40, 70); scene.add(fill);
+const kicker = new THREE.DirectionalLight(0xffffff, 1.3); kicker.position.set(-40, 70, -140); scene.add(kicker);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.ShadowMaterial({ opacity: 0.6 }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = GROUND_Y; ground.receiveShadow = true;
+scene.add(ground);
+const spot = new THREE.Mesh(new THREE.PlaneGeometry(760, 760), new THREE.MeshBasicMaterial({
+  map: radialTexture(256, 'rgba(255,255,255,1)', 'rgba(255,255,255,0)'), transparent: true, depthWrite: false, toneMapped: false }));
+spot.rotation.x = -Math.PI / 2; spot.position.set(0, GROUND_Y - 0.3, -40); spot.renderOrder = -1;
+scene.add(spot);
+
+const camera = new THREE.PerspectiveCamera(32, 1, 1, 4000);
+const PRESETS = { quarter: [175, 95, 265], front: [0, 20, 330], side: [330, 25, -10], top: [0.5, 520, -20], inside: [-60, 40, -330] };
+camera.position.copy(TARGET).add(vec(PRESETS.quarter));
+const controls = new OrbitControls(camera, canvas);
+controls.target.copy(TARGET);
+Object.assign(controls, { enableDamping: true, dampingFactor: 0.07, enablePan: false, minDistance: 120, maxDistance: 1200,
+                          minPolarAngle: 0.02, maxPolarAngle: 1.7, autoRotate: !reducedMotion, autoRotateSpeed: 0.8 });
+controls.update();
+
+// ============================================================ F. hotspot labels
+const labelRenderer = new CSS2DRenderer({ element: document.getElementById('labels') });
+const LABELS = [['mic_fr', 'Mic 1 · front right'], ['mic_fl', 'Mic 2 · front left'], ['mic_br', 'Mic 3 · back right'],
+                ['mic_bl', 'Mic 4 · back left'], ['camera', 'Camera · bridge']];
+const labels = LABELS.map(([key, text]) => {
+  const el = document.createElement('div'); el.className = 'hs';
+  el.innerHTML = `<span>${text}</span><i class="stem"></i><i class="dot"></i>`;
+  const obj = new CSS2DObject(el); obj.center.set(0.5, 1);
+  ANCHORS[key].add(obj);
+  return { key, el, obj, anchor: ANCHORS[key] };
+});
+const ray = new THREE.Raycaster(), wp = new THREE.Vector3(), rdir = new THREE.Vector3();
+function updateLabels() {                                // fade labels whose anchor is behind the frame
+  for (const l of labels) {
+    l.anchor.getWorldPosition(wp);
+    rdir.subVectors(wp, camera.position);
+    const dist = rdir.length();
+    ray.set(camera.position, rdir.normalize()); ray.near = 0; ray.far = dist - 1.5;
+    l.el.style.opacity = ray.intersectObjects(occluders, false).length ? 0.12 : 1;
+  }
+}
+
+// ============================================================ G. UI: presets, finish, lens, theme, keys
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+let labelsOn = true, autoWanted = !reducedMotion, finish = 'matte', theme = document.documentElement.dataset.theme || 'dark';
+const press = (attr, value) => $$(`[data-${attr}]`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset[attr] === value)));
+
+function setFinish(f) {
+  finish = f;
+  roleMeshes.acetate.forEach(m => { m.material = FINISHES[f].acetate; });
+  roleMeshes.metal.forEach(m => { m.material = FINISHES[f].metal; });
+  roleMeshes.board.forEach(m => { m.visible = f === 'crystal'; });
+  press('finish', f);
+}
+function setLens(k) { roleMeshes.lens.forEach(m => { m.material = LENSES[k]; }); press('lens', k); }
+function setLabels(on) { labelsOn = on; labels.forEach(l => { l.obj.visible = on; }); $('#btn-labels').setAttribute('aria-pressed', String(on)); }
+function applyTheme(t) {
+  theme = t; document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('sr-theme', t); } catch (e) {}
+  const T = THEMES[t];
+  colorBackdrop(t);
+  scene.environmentIntensity = T.env; renderer.toneMappingExposure = T.exposure;
+  ground.material.opacity = T.shadow; spot.material.color.set(T.spot);
+  arcMat.blending = t === 'dark' ? THREE.AdditiveBlending : THREE.NormalBlending; arcMat.needsUpdate = true;
+  $('#btn-theme').textContent = t === 'dark' ? 'Light' : 'Dark';
+  $('#btn-theme').setAttribute('aria-pressed', String(t === 'light'));
+}
+
+let flight = null, idleTimer = null;
+function scheduleResume() {
+  clearTimeout(idleTimer);
+  if (autoWanted && !reducedMotion) idleTimer = setTimeout(() => { controls.autoRotate = true; }, 4000);
+}
+function flyTo(name) {
+  const off = vec(PRESETS[name]).multiplyScalar(camera.aspect < 1 ? 1.4 : 1);
+  const from = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
+  const to = new THREE.Spherical().setFromVector3(off);
+  const dTheta = Math.atan2(Math.sin(to.theta - from.theta), Math.cos(to.theta - from.theta));
+  flight = { from, to, dTheta, t0: performance.now(), dur: reducedMotion ? 0 : 800 };
+  controls.autoRotate = false; clearTimeout(idleTimer);
+  press('view', name);
+}
+function stepFlight(now) {
+  const k = flight.dur ? clamp((now - flight.t0) / flight.dur, 0, 1) : 1;
+  const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  const s = new THREE.Spherical(lerp(flight.from.radius, flight.to.radius, e), lerp(flight.from.phi, flight.to.phi, e),
+                                flight.from.theta + flight.dTheta * e).makeSafe();
+  camera.position.setFromSpherical(s).add(controls.target);
+  camera.lookAt(controls.target);
+  if (k >= 1) { flight = null; controls.update(); scheduleResume(); }
+}
+controls.addEventListener('start', () => { controls.autoRotate = false; clearTimeout(idleTimer); flight = null; press('view', ''); });
+controls.addEventListener('end', scheduleResume);
+
+$$('[data-view]').forEach(b => b.addEventListener('click', () => flyTo(b.dataset.view)));
+$$('[data-finish]').forEach(b => b.addEventListener('click', () => setFinish(b.dataset.finish)));
+$$('[data-lens]').forEach(b => b.addEventListener('click', () => setLens(b.dataset.lens)));
+$('#btn-labels').addEventListener('click', () => setLabels(!labelsOn));
+$('#btn-rotate').addEventListener('click', () => {
+  autoWanted = !autoWanted; controls.autoRotate = autoWanted && !reducedMotion;
+  $('#btn-rotate').setAttribute('aria-pressed', String(autoWanted));
+});
+$('#btn-theme').addEventListener('click', () => applyTheme(theme === 'dark' ? 'light' : 'dark'));
+if (location.pathname === '/rendering') $('#backlink').hidden = false;
+const VIEWS = ['quarter', 'front', 'side', 'top', 'inside'], FIN = ['matte', 'gloss', 'crystal'];
+addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('input,select,textarea'))) return;
+  const k = e.key.toLowerCase();
+  if (k >= '1' && k <= '5') flyTo(VIEWS[+k - 1]);
+  else if (k === 'r') { if (!autoWanted) $('#btn-rotate').click(); flyTo('quarter'); }
+  else if (k === 'l') setLabels(!labelsOn);
+  else if (k === 'a') $('#btn-rotate').click();
+  else if (k === 't') $('#btn-theme').click();
+  else if (k === 'f') setFinish(FIN[(FIN.indexOf(finish) + 1) % FIN.length]);
+});
+
+// ============================================================ H. sound-direction cue (floor arc)
+// The frame only senses; the wearer's display is the phone overlay. Here a detected sound is drawn as a
+// glowing arc on the floor around the wearer, at the sound's bearing, in the sound's colour.
+function arcGeometry(r0 = 92, r1 = 120, span = deg(70), na = 48, nr = 8) {
+  const pos = [], col = [], idx = [];
+  for (let i = 0; i <= na; i++) {
+    const a = -span / 2 + span * i / na, wa = 1 - Math.pow(Math.abs(a) / (span / 2), 2);
+    for (let j = 0; j <= nr; j++) {
+      const r = lerp(r0, r1, j / nr), wr = Math.sin(Math.PI * j / nr);
+      pos.push(Math.sin(a) * r, 0, Math.cos(a) * r);
+      col.push(1, 1, 1, wa * wr);
+    }
+  }
+  for (let i = 0; i < na; i++) for (let j = 0; j < nr; j++) {
+    const a = i * (nr + 1) + j, b = a + nr + 1;
+    idx.push(a, b, a + 1, a + 1, b, b + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+  g.setIndex(idx);
+  return g;
+}
+const arcMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false,
+                                             toneMapped: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+const arc = new THREE.Mesh(arcGeometry(), arcMat);
+arc.position.set(0, GROUND_Y + 0.4, -40); arc.renderOrder = 5; arc.visible = false;
+scene.add(arc);
+const cue = { level: 0, until: 0, strength: 1 };
+// Bearing in degrees as rotation about +Y: 0 = ahead (+Z); the wearer's right is -X, i.e. -90.
+const BEARINGS = { front: 0, right: -90, behind: 180, left: 90 };
+function triggerCue(where, label, strength = 1, hold = 500, immediate = false) {
+  if (where === 'off') { cue.until = 0; return; }
+  const bearing = typeof where === 'number' ? where : (BEARINGS[where] ?? 0);
+  arcMat.color.set(SOUND_COLORS[label] || '#ffffff');
+  arc.rotation.y = deg(bearing);
+  cue.until = performance.now() + hold; cue.strength = strength;
+  if (immediate) cue.level = strength;
+}
+function stepCue(now, dt) {
+  const target = now < cue.until ? cue.strength : 0;
+  cue.level += (target - cue.level) * Math.min(1, (target > cue.level ? 14 : 2.5) * dt);
+  arcMat.opacity = cue.level * 0.95;
+  arc.visible = cue.level > 0.01;
+}
+const sel = $('#sim-class');
+for (const k of Object.keys(SOUND_COLORS)) {
+  if (k === 'other') continue;
+  const o = document.createElement('option'); o.value = k; o.textContent = k.replace('_', ' '); sel.appendChild(o);
+}
+sel.value = 'siren';
+$$('[data-sim]').forEach(b => b.addEventListener('click', () => triggerCue(b.dataset.sim, sel.value, 1, 900)));
+if (!FEATURES.sim) $('#row-sim').remove();
+
+// ============================================================ I. live mode: follow demo/live_demo.py's /state
+if (FEATURES.live) (async () => {
+  let fails = 0, lastTs = 0;
+  // demo: -90..90 (+ = right), Pi: 0..360 clockwise from the front. Both count toward the wearer's right,
+  // which is -X here, hence the sign flip.
+  const toBearing = a => { let d = ((a % 360) + 360) % 360; if (d > 180) d -= 360; return -d; };
+  async function poll() {
+    try {
+      const r = await fetch('/state', { cache: 'no-store' });
+      if (r.status === 404) return;                                   // plain static hosting: no live data
+      if (!r.ok) throw new Error(String(r.status));
+      const s = await r.json();
+      if (typeof s.ts !== 'number') throw new Error('unexpected /state shape');
+      fails = 0; $('#live').classList.add('on');
+      if (s.label && s.ts !== lastTs) {
+        lastTs = s.ts;
+        const where = (s.angle === null || s.angle === undefined) ? 'front' : toBearing(s.angle);
+        triggerCue(where, s.label, clamp(0.55 + (s.conf || 0) * 0.45, 0.55, 1), 600);
+      }
+    } catch (e) {
+      if (++fails >= 3) { $('#live').classList.remove('on'); return; }
+    }
+    setTimeout(poll, 250);
+  }
+  poll();
+})();
+
+// ============================================================ J. optional: a real CAD export via ?model=frame.glb
+if (FEATURES.glb) (async () => {
+  if (location.protocol === 'file:') { console.warn('?model= needs http: file:// blocks fetch. Try: python3 -m http.server -d docs/rendering'); return; }
+  try {
+    const [{ GLTFLoader }, { DRACOLoader }] = await Promise.all([
+      import('three/addons/loaders/GLTFLoader.js'), import('three/addons/loaders/DRACOLoader.js')]);
+    const loader = new GLTFLoader(), draco = new DRACOLoader();
+    draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/');
+    loader.setDRACOLoader(draco);
+    const gltf = await loader.loadAsync(new URL(params.get('model'), location.href).href);
+    const root = gltf.scene, box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3());
+    const ext = Math.max(size.x, size.y, size.z);
+    root.scale.setScalar(ext < 2 ? 1000 : ext < 30 ? 10 : 1);         // metres or centimetres -> mm
+    box.setFromObject(root);
+    root.position.sub(box.getCenter(new THREE.Vector3())).add(TARGET);
+    occluders.length = 0;
+    root.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; occluders.push(o); } });
+    for (const l of labels) {                                          // nodes named mic_fr/mic_fl/mic_br/mic_bl/camera
+      const node = root.getObjectByName(l.key);
+      if (node) { node.add(l.obj); l.anchor = node; } else l.obj.visible = false;
+    }
+    model.visible = false; scene.add(root); renderer.shadowMap.needsUpdate = true;
+  } catch (e) { console.error('Could not load ?model=', e); }
+})();
+
+// ============================================================ K. resize + render loop
+const stage = document.getElementById('stage');
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, coarsePointer ? 1.5 : 2));
+  renderer.setSize(w, h, false);
+  labelRenderer.setSize(w, h);
+  camera.aspect = w / h; camera.fov = camera.aspect < 1 ? 40 : 32;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+const clock = new THREE.Clock();
+let frame = 0;
+function loop() {
+  if (document.hidden) return;                     // resumed by visibilitychange below
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.1), now = performance.now();
+  if (flight) stepFlight(now); else controls.update(dt);
+  stepCue(now, dt);
+  if (labelsOn && frame++ % 4 === 0) updateLabels();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+  if (DEBUG && (frame < 4 || frame % 30 === 0)) console.log('[sr] frame', frame, 't', performance.now().toFixed(0),
+    'calls', renderer.info.render.calls, 'tris', renderer.info.render.triangles, 'dt', dt.toFixed(3));
+}
+const DEBUG = params.has('debug');
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { clock.getDelta(); loop(); } });
+
+applyTheme(theme); setFinish('matte'); setLens('clear'); setLabels(true);
+
+// Deep links, e.g. ?view=side&finish=gloss&lens=tinted&theme=light&labels=0&rotate=0&sim=left&class=dog
+const q = k => params.get(k);
+if (q('theme') === 'light' || q('theme') === 'dark') applyTheme(q('theme'));
+if (FIN.includes(q('finish'))) setFinish(q('finish'));
+if (q('lens') === 'tinted') setLens('tinted');
+if (q('labels') === '0') setLabels(false);
+if (q('rotate') === '0') { autoWanted = false; controls.autoRotate = false; $('#btn-rotate').setAttribute('aria-pressed', 'false'); }
+if (VIEWS.includes(q('view'))) {
+  camera.position.copy(controls.target).add(vec(PRESETS[q('view')]).multiplyScalar(camera.aspect < 1 ? 1.4 : 1));
+  controls.update(); press('view', q('view'));
+}
+if (q('sim') in BEARINGS) triggerCue(q('sim'), q('class') || 'siren', 1, 1e9, true);
+
+renderer.shadowMap.needsUpdate = true;
+loop();
+window.__sceneReady = true;
+document.getElementById('loading').remove();
+</script>
+</body>
+</html>
