@@ -60,7 +60,9 @@ front clap. If left/right are mirrored, swap the sign of `y` in `estimate_angle`
 
 - `HIGHLIGHT` — label -> LED colour. Labels come from `labels.json` (trained in `../ml`).
 - `LOUDNESS_GATE_DB` — raise toward -35 if it flickers on room noise.
-- `MIN_CONFIDENCE` — raise toward 0.4 for fewer false positives.
+- Per-class thresholds come from `thresholds.json` (written by `../ml/train_head.py`); there is
+  no single `MIN_CONFIDENCE` any more. To check a change, run `../ml/eval_pipeline.py`, which
+  scores the demo's `detector.py` pipeline (the Pi script still has its own copy of the loop).
 - `IGNORE` — add your own voice-y classes if it keeps firing on you talking.
 
 ## Known limits

@@ -14,44 +14,15 @@ Run: python3 extract_embeddings.py
 """
 import csv, time, random
 import numpy as np
-import soundfile as sf
-import resampy
 import tensorflow as tf
 from config import *
+from audio_utils import load_mono_16k, normalise, windows, rms, random_crop
 
 random.seed(0); np.random.seed(0)
 
-# ------------------------------------------------------------ audio io --
-def load_mono_16k(path, offset=0.0, duration=0.0):
-    info = sf.info(path)
-    start = int(offset * info.samplerate)
-    frames = int(duration * info.samplerate) if duration > 0 else -1
-    y, sr = sf.read(path, dtype="float32", always_2d=True, start=start, frames=frames)
-    y = y.mean(axis=1)
-    if sr != SAMPLE_RATE:
-        y = resampy.resample(y, sr, SAMPLE_RATE)
-    return y
-
-def normalise(y):
-    peak = np.abs(y).max()
-    return y / peak * 0.5 if peak > 0 else y
-
-def windows(y):
-    if len(y) < WINDOW:
-        y = np.pad(y, (0, WINDOW - len(y)))
-    for start in range(0, len(y) - WINDOW + 1, HOP):
-        yield y[start:start + WINDOW]
+# audio io + random_crop live in audio_utils.py (shared with eval_pipeline.py)
 
 # -------------------------------------------------------- augmentation --
-def rms(x):
-    return float(np.sqrt(np.mean(x ** 2)) + 1e-9)
-
-def random_crop(y, n):
-    if len(y) <= n:
-        return np.pad(y, (0, n - len(y)))
-    s = random.randrange(0, len(y) - n + 1)
-    return y[s:s + n]
-
 def mix_with_noise(sig, noise, snr_db):
     noise = random_crop(noise, len(sig))
     g = rms(sig) / (rms(noise) * 10 ** (snr_db / 20))

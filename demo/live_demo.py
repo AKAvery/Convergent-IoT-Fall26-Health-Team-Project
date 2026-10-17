@@ -3,35 +3,34 @@
 Live laptop demo: listens on your computer's microphone, classifies sounds with the
 same model the Pi uses, and shows a Fortnite-style ring in your browser.
 
-    pip install sounddevice numpy tensorflow-cpu flask
+    pip install -r requirements.txt
     python3 live_demo.py
     -> open http://localhost:5050
+
+Options
+    --list            show input devices        --device N      pick one
+    --preset NAME     which sounds are alerts (all, safety, babies, privacy, household)
+    --gain DB         digital input gain, e.g. --gain 12 if your mic is quiet
+    --baseline        run the pre-harness pipeline (0.25 s hop, -50 dB 1 s RMS gate) for comparison
+    --wav PATH        play a WAV file through the pipeline in real time instead of the mic
+
+The detection logic lives in detector.py and is shared with ml/eval_pipeline.py, so what you
+see here is exactly what the harness measures.
 
 Laptop mics are (usually) mono, so direction is estimated only when a stereo input
 exists (left/right from level difference). Otherwise the whole ring pulses.
 """
-import sys, json, math, time, threading, collections
+import sys, json, math, time, threading
 from pathlib import Path
 import numpy as np
-import sounddevice as sd
-from flask import Flask, jsonify, Response, send_from_directory
+from flask import Flask, jsonify, Response, send_from_directory, request
 
-try:
-    import tflite_runtime.interpreter as tflite
-except ImportError:
-    import tensorflow.lite as tflite
+from detector import Detector, DetectorParams, PRESETS, SAMPLE_RATE, json_safe
 
-PI_DIR = Path(__file__).resolve().parent.parent / "pi"
 RENDER_DIR = Path(__file__).resolve().parent.parent / "docs" / "rendering"   # 3D glasses concept page
-SAMPLE_RATE = 16000
-WINDOW = 15600
-BUFFER_SECONDS = 1.0
-UPDATE_SECONDS = 0.25
-LOUDNESS_GATE_DB = -50
-PERSIST_FRAMES = 2
-CLASS_PRIORITY = {"siren": 10, "alarm": 10, "glass_break": 8, "car_horn": 9, "baby_cry": 7,
-                  "knock": 5, "clap": 4, "dog": 3, "cat": 2, "appliance": 2, "speech": 2, "footsteps": 1}
 HISTORY = 12
+MIC_WARN_SECONDS = 2.0
+MIC_WARN_DB = -40
 
 COLORS = {
     "siren": "#ff2d2d", "alarm": "#ff2d2d", "car_horn": "#ff6a00", "glass_break": "#b400ff",
@@ -40,99 +39,92 @@ COLORS = {
     "other": "#555555",
 }
 
-# ---------------------------------------------------------------- model --
-class Classifier:
-    def __init__(self):
-        self.embed = tflite.Interpreter(model_path=str(PI_DIR / "yamnet_embedding_metadata.tflite"), num_threads=4)
-        self.embed.allocate_tensors()
-        self.e_in = self.embed.get_input_details()[0]["index"]
-        self.e_out = self.embed.get_output_details()[0]["index"]
-        self.head = tflite.Interpreter(model_path=str(PI_DIR / "sound_head.tflite"))
-        self.head.allocate_tensors()
-        self.h_in = self.head.get_input_details()[0]["index"]
-        self.h_out = self.head.get_output_details()[0]["index"]
-        self.names = json.loads((PI_DIR / "labels.json").read_text())
-        try:
-            t = json.loads((PI_DIR / "thresholds.json").read_text())
-            self.thr = np.array([t.get(n, 0.5) for n in self.names])
-        except FileNotFoundError:
-            self.thr = np.full(len(self.names), 0.5)
-        self.streak = {}
+# ---------------------------------------------------------------- state --
+state = {"label": None, "conf": 0.0, "db": -100.0, "angle": None, "top3": [], "hits": [], "alerts": [],
+         "history": [], "ts": 0, "gated": True, "preset": "all", "gate_db": None, "peak_db": -100.0,
+         "clip_frac": 0.0, "level_db": -100.0}
+lock = threading.Lock()
+detector = None   # set in main before the audio loop starts
 
-    def probs(self, mono):
-        mono = mono.astype(np.float32)
-        peak = np.abs(mono).max()
-        if peak > 0:
-            mono = mono / peak * 0.5
-        if len(mono) < WINDOW:
-            mono = np.pad(mono, (0, WINDOW - len(mono)))
-        w = mono[-WINDOW:]
-        self.embed.set_tensor(self.e_in, w[np.newaxis, :]); self.embed.invoke()
-        self.head.set_tensor(self.h_in, self.embed.get_tensor(self.e_out)); self.head.invoke()
-        return self.head.get_tensor(self.h_out)[0]
 
-    def detect(self, mono, db):
-        """All classes over threshold, persisted PERSIST_FRAMES updates, scored by priority."""
-        p = self.probs(mono)
-        loud = min(1.0, max(0.2, (db + 50) / 30))
-        hits = []
-        for i, name in enumerate(self.names):
-            if name == "other" or p[i] < self.thr[i]:
-                self.streak[name] = 0; continue
-            self.streak[name] = self.streak.get(name, 0) + 1
-            if self.streak[name] < PERSIST_FRAMES:
-                continue
-            hits.append({"label": name, "conf": float(p[i]), "score": CLASS_PRIORITY.get(name, 1) * float(p[i]) * loud})
-        order = np.argsort(p)[::-1][:3]
-        return sorted(hits, key=lambda h: -h["score"]), [(self.names[i], float(p[i])) for i in order]
+def push_state(st, angle):
+    """Copy one Detector.process() result into the shared state (plus direction + history)."""
+    with lock:
+        state.update(json_safe(st))
+        state["angle"] = angle
+        state["ts"] = time.time()
+        if st["label"] is not None:
+            h = state["history"]
+            if not h or h[0]["label"] != st["label"] or time.time() - h[0]["t"] > 2:
+                h.insert(0, {"label": st["label"], "conf": round(st["conf"], 2), "db": round(st["db"]), "t": time.time()})
+                del h[HISTORY:]
+
 
 # ---------------------------------------------------------------- audio --
-state = {"label": None, "conf": 0.0, "db": -100.0, "angle": None, "top3": [], "hits": [], "history": [], "ts": 0}
-lock = threading.Lock()
-
 def audio_loop(device=None):
-    net = Classifier()
+    import sounddevice as sd
     info = sd.query_devices(device, "input")
     channels = min(2, int(info["max_input_channels"]))
     print(f"mic: {info['name']}  channels used: {channels}")
-    buf = collections.deque(maxlen=int(BUFFER_SECONDS * SAMPLE_RATE))
-    frames = int(UPDATE_SECONDS * SAMPLE_RATE)
+    frames = detector.hop
+    warn_peak, warn_frames, warned = 0.0, 0, False
     with sd.InputStream(device=device, channels=channels, samplerate=SAMPLE_RATE,
                         dtype="float32", blocksize=frames) as stream:
         while True:
             block, _ = stream.read(frames)
-            buf.extend(block)
-            if len(buf) < buf.maxlen:
-                continue
-            x = np.array(buf)
-            mono = x.mean(axis=1)
-            rms = np.sqrt(np.mean(mono ** 2))
-            db = 20 * math.log10(rms + 1e-9)
+            mono = block.mean(axis=1)
+            if not warned:
+                warn_peak = max(warn_peak, float(np.abs(block).max())); warn_frames += 1
+                if warn_frames * frames >= MIC_WARN_SECONDS * SAMPLE_RATE:
+                    warned = True
+                    peak_db = 20 * math.log10(warn_peak + 1e-9)
+                    if peak_db < MIC_WARN_DB:
+                        print(f"WARNING: mic input peaked at {peak_db:.0f} dBFS in the first {MIC_WARN_SECONDS:.0f} s. "
+                              f"Raise the input volume (System Settings -> Sound -> Input) or use --gain.")
             angle = None
             if channels == 2:
-                l = np.sqrt(np.mean(x[-frames:, 0] ** 2)) + 1e-9
-                r = np.sqrt(np.mean(x[-frames:, 1] ** 2)) + 1e-9
+                l = np.sqrt(np.mean(block[:, 0] ** 2)) + 1e-9
+                r = np.sqrt(np.mean(block[:, 1] ** 2)) + 1e-9
                 bal = max(-1.0, min(1.0, 20 * math.log10(r / l) / 6.0))   # ±6 dB -> full left/right
                 angle = 90 * bal                                           # -90 = left, +90 = right
-            with lock:
-                state["db"] = db
-                state["angle"] = angle
-                state["ts"] = time.time()
-                if db < LOUDNESS_GATE_DB:
-                    state["label"] = None; state["conf"] = 0.0; state["top3"] = []; state["hits"] = []
-                    continue
-                hits, top3 = net.detect(mono, db)
-                state["top3"] = top3
-                state["hits"] = hits
-                if not hits:
-                    state["label"] = None; state["conf"] = 0.0
-                else:
-                    name, conf = hits[0]["label"], hits[0]["conf"]
-                    state["label"] = name; state["conf"] = conf
-                    h = state["history"]
-                    if not h or h[0]["label"] != name or time.time() - h[0]["t"] > 2:
-                        h.insert(0, {"label": name, "conf": round(conf, 2), "db": round(db), "t": time.time()})
-                        del h[HISTORY:]
+            push_state(detector.process(mono), angle)
+
+
+def load_wav_16k(path):
+    """Mono float32 at 16 kHz. Uses soundfile+resampy if installed, else stdlib wave + linear resample."""
+    try:
+        import soundfile as sf, resampy
+        y, sr = sf.read(path, dtype="float32", always_2d=True)
+        y = y.mean(axis=1)
+        return y if sr == SAMPLE_RATE else resampy.resample(y, sr, SAMPLE_RATE)
+    except ImportError:
+        import wave
+        with wave.open(path, "rb") as w:
+            sr, n, width, ch = w.getframerate(), w.getnframes(), w.getsampwidth(), w.getnchannels()
+            raw = w.readframes(n)
+        if width != 2:
+            sys.exit("only 16-bit PCM WAV supported without soundfile installed")
+        y = np.frombuffer(raw, dtype=np.int16).astype(np.float32).reshape(-1, ch).mean(axis=1) / 32768
+        if sr != SAMPLE_RATE:
+            t_new = np.arange(0, len(y) / sr, 1 / SAMPLE_RATE)
+            y = np.interp(t_new, np.arange(len(y)) / sr, y).astype(np.float32)   # crude, fine for a manual check
+        return y
+
+
+def wav_loop(path):
+    """Feed a file through the pipeline at real-time speed (2 s of silence before and after), then loop."""
+    y = load_wav_16k(path)
+    pad = np.zeros(2 * SAMPLE_RATE, dtype=np.float32)
+    stream = np.concatenate([pad, y, pad])
+    hop = detector.hop
+    print(f"playing {path} ({len(y)/SAMPLE_RATE:.1f} s, peak {20*math.log10(np.abs(y).max()+1e-9):.0f} dBFS) on a loop")
+    while True:
+        detector.reset()
+        for i in range(0, len(stream) - hop + 1, hop):
+            t0 = time.time()
+            push_state(detector.process(stream[i:i + hop]), None)
+            time.sleep(max(0.0, detector.p.hop_s - (time.time() - t0)))
+
 
 # ---------------------------------------------------------------- web --
 app = Flask(__name__)
@@ -141,6 +133,15 @@ app = Flask(__name__)
 def get_state():
     with lock:
         return jsonify(state)
+
+@app.route("/preset/<name>", methods=["POST"])
+def set_preset(name):
+    if name not in PRESETS:
+        return jsonify({"error": f"unknown preset {name}", "presets": sorted(PRESETS)}), 400
+    with lock:
+        detector.set_preset(name)
+        state["preset"] = name
+    return jsonify({"preset": name})
 
 @app.route("/rendering")
 def rendering():
@@ -167,6 +168,9 @@ h1{font-weight:600;font-size:18px;letter-spacing:.08em;color:#9aa;margin:0 0 16p
 small{color:#667}
 #top3{margin-top:10px;font-size:12px;color:#889}
 #also{margin-top:8px;font-size:14px;color:#aab;min-height:18px}
+#clip{color:#ff2d2d;font-size:12px;min-height:16px;margin-top:6px}
+select{background:#141a21;color:#eee;border:1px solid #2a333d;padding:6px 8px;font-size:14px;border-radius:4px;width:100%;margin-bottom:20px}
+label.sm{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#667;margin-bottom:6px}
 </style></head><body>
 <div id="left">
   <svg id="ring" width="360" height="360" viewBox="-100 -100 200 200">
@@ -180,11 +184,15 @@ small{color:#667}
   <div id="label">listening…</div>
   <div id="conf"></div>
   <div id="meter"><div id="meterfill"></div></div>
+  <div id="clip"></div>
   <div id="also"></div>
   <div id="top3"></div>
   <small style="margin-top:20px">front = up · laptop mic gives left/right only</small>
 </div>
-<div id="right"><h1>RECENT</h1><div id="hist"></div>
+<div id="right">
+  <label class="sm" for="preset">Alerts</label>
+  <select id="preset">%PRESET_OPTIONS%</select>
+  <h1>RECENT</h1><div id="hist"></div>
   <p style="margin-top:24px"><a href="/rendering" style="color:#9aa;font-size:12px;letter-spacing:.08em;text-transform:uppercase;text-decoration:none">3D glasses concept →</a></p>
 </div>
 <script>
@@ -194,20 +202,24 @@ for(let i=0;i<12;i++){const a=i*30*Math.PI/180;const l=document.createElementNS(
  l.setAttribute('x1',Math.sin(a)*84);l.setAttribute('y1',-Math.cos(a)*84);l.setAttribute('x2',Math.sin(a)*90);l.setAttribute('y2',-Math.cos(a)*90);ticks.appendChild(l);}
 function wedge(angle,w){const a0=(angle-w)*Math.PI/180,a1=(angle+w)*Math.PI/180,R=90;
  return `M0 0 L${Math.sin(a0)*R} ${-Math.cos(a0)*R} A${R} ${R} 0 0 1 ${Math.sin(a1)*R} ${-Math.cos(a1)*R} Z`;}
-let lastTs=0;
+const sel=document.getElementById('preset');
+sel.addEventListener('change',()=>fetch('/preset/'+sel.value,{method:'POST'}));
+let presetSynced=false;
 async function tick(){
  try{const s=await (await fetch('/state')).json();
+  if(!presetSynced&&s.preset){sel.value=s.preset;presetSynced=true;}
   const col=C[s.label]||'#fff';
   document.getElementById('meterfill').style.width=Math.max(0,Math.min(100,(s.db+60)*100/60))+'%';
+  document.getElementById('clip').textContent=(s.clip_frac>0.01)?'mic clipping — lower the volume':'';
   const wd=document.getElementById('wedge'),pu=document.getElementById('pulse');
   if(s.label){
    document.getElementById('label').textContent=s.label.replace('_',' ');document.getElementById('label').style.color=col;
    document.getElementById('conf').textContent=Math.round(s.conf*100)+'% confident · '+Math.round(s.db)+' dB';
    if(s.angle!==null){wd.setAttribute('d',wedge(s.angle,25));wd.setAttribute('fill',col);wd.setAttribute('opacity',.8);pu.setAttribute('opacity',0);}
    else{wd.setAttribute('opacity',0);pu.setAttribute('stroke',col);pu.setAttribute('opacity',.9);}
-  }else{document.getElementById('label').textContent=s.db<-50?'quiet':'…';document.getElementById('label').style.color='#556';
-   document.getElementById('conf').textContent='';wd.setAttribute('opacity',0);pu.setAttribute('opacity',0);}
-  document.getElementById('also').innerHTML=(s.hits||[]).slice(1).map(h=>`<span class="dot" style="background:${C[h.label]||'#fff'}"></span>${h.label.replace('_',' ')} ${Math.round(h.conf*100)}%`).join('&nbsp;&nbsp;&nbsp;');
+  }else{document.getElementById('label').textContent=s.gated?'quiet':'…';document.getElementById('label').style.color='#556';
+   document.getElementById('conf').textContent=s.gated?('below '+Math.round(s.gate_db)+' dB gate'):'';wd.setAttribute('opacity',0);pu.setAttribute('opacity',0);}
+  document.getElementById('also').innerHTML=(s.hits||[]).filter(h=>h.label!==s.label).map(h=>`<span class="dot" style="background:${C[h.label]||'#fff'}"></span>${h.label.replace('_',' ')} ${Math.round(h.conf*100)}%`).join('&nbsp;&nbsp;&nbsp;');
   document.getElementById('top3').textContent=(s.top3||[]).map(t=>t[0]+' '+Math.round(t[1]*100)+'%').join('   ');
   document.getElementById('hist').innerHTML=(s.history||[]).map(h=>`<div class="row"><span><span class="dot" style="background:${C[h.label]||'#fff'}"></span>${h.label.replace('_',' ')}</span><span>${Math.round(h.conf*100)}%</span></div>`).join('');
  }catch(e){}
@@ -217,14 +229,25 @@ tick();
 
 @app.route("/")
 def index():
-    return Response(PAGE.replace("%COLORS%", json.dumps(COLORS)), mimetype="text/html")
+    opts = "".join(f'<option value="{p}">{p}</option>' for p in PRESETS)
+    return Response(PAGE.replace("%COLORS%", json.dumps(COLORS)).replace("%PRESET_OPTIONS%", opts), mimetype="text/html")
+
+
+def arg(flag, default=None, cast=str):
+    if flag in sys.argv:
+        return cast(sys.argv[sys.argv.index(flag) + 1])
+    return default
+
 
 if __name__ == "__main__":
     if "--list" in sys.argv:
+        import sounddevice as sd
         print(sd.query_devices()); sys.exit()
-    dev = None
-    if "--device" in sys.argv:
-        dev = int(sys.argv[sys.argv.index("--device") + 1])
+    params = DetectorParams.baseline() if "--baseline" in sys.argv else DetectorParams.default()
+    params.input_gain_db = arg("--gain", 0.0, float)
+    detector = Detector(params, preset=arg("--preset", "all"))
+    state["preset"] = detector.preset; state["gate_db"] = params.gate_db
+    print(f"pipeline: {'baseline' if '--baseline' in sys.argv else 'default'}  ({params.describe()})")
     # Flask in the background; audio + model on the MAIN thread (macOS CoreAudio and
     # the mic-permission prompt are much happier that way).
     import logging; logging.getLogger("werkzeug").setLevel(logging.ERROR)
@@ -232,7 +255,8 @@ if __name__ == "__main__":
                      daemon=True).start()
     print("open http://localhost:5050")
     try:
-        audio_loop(dev)
+        wav = arg("--wav")
+        wav_loop(wav) if wav else audio_loop(arg("--device", None, int))
     except KeyboardInterrupt:
         print("\nbye")
         import os; os._exit(0)   # skip TensorFlow's teardown, which segfaults on macOS

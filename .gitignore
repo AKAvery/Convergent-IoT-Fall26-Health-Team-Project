@@ -12,3 +12,6 @@ __pycache__/
 
 # virtualenvs
 .venv/
+
+# eval harness scratch (the .md reports are kept)
+ml/work/*.pkl

@@ -85,13 +85,59 @@ etc. that the user will hear. Phone recordings are fine.
   with both labels on, so overlapping sounds can both be detected.
 - **Multi-label head** (`train_head.py`): sigmoid outputs, one yes/no per class, instead of
   softmax picking a single winner.
-- **Calibrated thresholds** (`models/thresholds.json`): chosen per class from the data. Safety
-  sounds (siren, alarm, glass, horn, baby) are tuned for recall; low-stakes sounds for precision.
+- **Calibrated thresholds** (`models/thresholds.json`): chosen per class from the data, under the
+  streaming decision rule (see "Evaluating the live pipeline"). Safety sounds are tuned for recall
+  (F-beta with beta 2), low-stakes sounds for precision.
 - **Priority scoring** (`config.CLASS_PRIORITY`, used by the Pi and demo): when several sounds
   are detected, `priority × confidence × loudness` decides which one gets the ring. A loud dog
   loses to a quieter car horn.
-- **Persistence** (`PERSIST_FRAMES`): a sound must show up on 2 consecutive updates before it
-  lights, which removes one-frame flickers at the cost of ~0.25 s latency.
+- **Persistence** (`DetectorParams.persist`): a sound must show up on consecutive updates before
+  it fires. Measured with `eval_pipeline.py`: the time span of evidence matters more than the
+  count, so a shorter hop needs a higher persist to keep wrong labels down.
+
+## Evaluating the live pipeline
+
+Training accuracy says how good the head is on whole clips. What the user sees also depends on
+the gate, hop, persistence and decision rule in `demo/detector.py`. `eval_pipeline.py` streams
+the held-out test clips through that exact code and reports the two things we care about,
+separately: **caught** (the true class fired while the clip played) and **wrong label** (another
+class fired, and whether it was shown big).
+
+```bash
+pip install soundfile resampy tensorflow        # same venv as training
+python3 eval_pipeline.py                        # default params -> work/eval_default.md
+python3 eval_pipeline.py --compare              # baseline (old demo) vs default + regression guard
+python3 eval_pipeline.py --compare --reuse-baseline --tag p5 --set persist=5   # try a change
+python3 eval_pipeline.py --quick                # 2 clips/class smoke test (~10 s)
+python3 eval_pipeline.py --playback             # through the real speakers + mic (needs sounddevice)
+```
+
+Sections of the report: streamed confusion at -20 dBFS (per class caught / wrong / big-label
+accuracy / onset latency, plus a fired-class matrix), a level sweep from -10 to -50 dBFS, false
+fires per minute on "other" clips and on pure background (per preset), out-of-vocabulary ESC-50
+categories and what we called them, two-sound overlap, and a threshold sweep under the streaming
+rule with an F-beta suggestion per class (nothing is written automatically).
+
+`--compare` exits 1 and prints **REGRESSION** if any class loses more than 0.05 caught rate at
+-20 dBFS or any source gains more than 0.2 false fires per minute. Every pipeline change should
+pass it. Digital attenuation has no room or mic noise, so the quiet rows measure the gate and
+ranking; `--playback` is the honest test of the laptop setup (and shows whether loud volumes
+clip the mic).
+
+**Thresholds.** `models/thresholds.json` (and the copy in `pi/`) currently hold values calibrated
+with this harness under the streaming rule (2026-10-17: alarm 0.80, car_horn 0.75, siren 0.60,
+glass_break 0.50, speech 0.80, ...). They are much higher than `train_head.py`'s clip-level
+calibration (`models/thresholds_cliplevel.json`, kept so `--compare` can reproduce the old demo),
+because under streaming every 0.1 s window gets a vote and the low clip-level values fired on
+wind, trains, rain and cutlery. Clap, dog, knock and footsteps kept their old thresholds: raising
+them cost recall. **`train_head.py` overwrites `thresholds.json` on retrain**; afterwards run
+`eval_pipeline.py --write-suggested work/thr.json`, check `work/thr_safe.json` with
+`--compare --thresholds work/thr_safe.json`, and copy it over if the guard passes.
+
+When to retrain instead of tuning: a class with caught < 0.9 at -20 dBFS although the gate is
+open, or wrong-label > 0.10 on unclipped input, is a model problem. Record 20–40 clips of it
+(`record_clips.py`, below) and retrain; accept the new head only if `--compare --model-dir`
+against the old model files passes the guard.
 
 ## Tuning
 

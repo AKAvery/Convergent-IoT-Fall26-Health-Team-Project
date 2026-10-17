@@ -37,6 +37,11 @@ Offline simulation of the `demo/live_demo.py` loop on 120 ESC-50 clips of our cl
 2 s of quiet prepended, timed from onset to first fire. Thresholds from `pi/thresholds.json`,
 `-50 dB` loudness gate as in the demo. Laptop CPU, TFLite + XNNPACK.
 
+*Gate, 2026-10-17:* that -50 dB gate on 1 s RMS was the reason quiet sounds were never classified.
+Clips at -40 dBFS peak were caught 5% of the time, at -50 dBFS never. The demo now gates on the
+loudest 100 ms sub-window at -70 dB: 99% and 98% caught (digital attenuation; room and mic noise
+not included, see `ml/README.md` → Evaluating the live pipeline).
+
 | hop | persist | median | p90 | missed |
 |---|---|---|---|---|
 | 0.25 s (demo today) | 2 | 0.50 s | 1.05 s | 1 |
@@ -52,9 +57,18 @@ overlap the training set, and false positives on real background noise were not 
 ### Getting it down (in order of payoff per effort)
 
 1. **Hop 0.1 s, persist 2.** 0.50 → 0.30 s median, no extra misses. 10 inferences/s is trivial on a phone.
+   *Update 2026-10-17:* done in the demo (`demo/detector.py`), but with **persist 5**, not 2. Measured
+   with `ml/eval_pipeline.py` on the streamed test clips: hop 0.1 / persist 2 kept the misses at zero
+   but doubled wrong labels (0.13 → 0.24 of clips) and false fires on non-target sounds (9.3 → 22.7 per
+   minute). What matters is the evidence span (hop × persist): persist 5 = 0.5 s, same as before,
+   and wrong labels fell to 0.09, false fires to 6.5/min. The latency win is therefore smaller than
+   the table above promised; the gate change (below) is where the demo gained the most.
 2. **Split direction from label.** Draw the wedge from GCC-PHAT at onset; colour it when the label arrives.
 3. **Per-class persistence.** persist 1 for alarm / siren / car_horn / glass_break; persist 2 for the
    classes that flicker on room noise (dog, speech, footsteps, appliance). Verify false positives first.
+   *Update 2026-10-17:* not done. The harness shows false fires are dominated by exactly the safety
+   classes (car_horn, glass_break, alarm on wind, trains, rain), so shortening their persistence would
+   make the wrong-label problem worse. Revisit after retraining with real recordings.
 4. **Push, don't poll.** The demo page polls every 150 ms; that is 0–150 ms of pure display delay.
 5. **Small UDP blocks, Wi-Fi sleep off, no jitter buffer.** Append each block to the ring buffer as it
    lands. A "safety" buffer of a few hundred ms on the phone throws the whole win away.
