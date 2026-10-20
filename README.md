@@ -2,8 +2,8 @@
 
 Fortnite's "visualize sound effects," in real life.
 
-3D-printed smart glasses that hear, locate and name the sounds around you, then show them as
-text and symbols laid over a live video view, positioned by where each sound came from. Built
+3D-printed glasses that hear, locate and name the sounds around you, then show them on your
+Apple Watch as arrows around a bird's-eye view of you, with a full iPhone app behind it. Built
 for people who are deaf or hard of hearing, and for anyone who wants sound awareness (safety,
 privacy, babies). Texas Convergent IoT, Fall 2026.
 
@@ -11,51 +11,52 @@ privacy, babies). Texas Convergent IoT, Fall 2026.
 disagrees with it, this file wins and the other doc needs updating (see
 [Docs that need reconciling](#docs-that-need-reconciling)).
 
+**Who builds what, week by week, and the contracts between lanes:
+[`docs/team-plan.md`](docs/team-plan.md).**
+
 ## What we are building
 
 A 3D-printed glasses frame carrying:
 
-- **4+ microphones**, at the corners of the frame
-- **A camera** at the bridge of the nose
-- **A small battery**, attached to the frame
-- **A microcontroller** (ESP32 or something smaller), chosen to fit the product and to
-  minimise both cost and time latency
+- **4 microphones**, at the corners of the frame
+- **A small battery**
+- **An ESP32-S3**, which computes sound direction and streams it with one audio channel over BLE
 
-The frame captures audio and video and sends both to a **phone**. The phone does all the
-processing and does two things:
+There is **no camera** (changed 2026-10-19).
 
-1. **Live-streams the camera video with minimal delay.**
-2. **Overlays text or symbols on that stream** showing where each identifiable sound is coming
-   from, in the cardinal direction of the sound relative to the wearer.
+The glasses send to an **iPhone app (Swift)**, which classifies the sounds and drives an
+**Apple Watch app (Swift)**:
 
-Example: a baby cries behind the wearer. The app shows "baby cry" at the **bottom** of the
-screen, because behind = bottom. Left and right sounds appear at the screen's left and right
-edges; sounds in front appear in the middle of the view.
+- **Watch:** a bird's-eye view of the wearer with an arrow pointing at each sound, its label,
+  loudness, and a haptic buzz for urgent sounds.
+- **iPhone:** the comprehensive app. Live view, filters, settings, history, device pairing.
 
-The phone app is a **proof-of-concept mockup** of what the wearer would see through their
-lenses on a live display like Meta's glasses. It is not the final product surface.
+Example: a baby cries behind the wearer. The watch buzzes and shows a "baby cry" arrow pointing
+down (behind) from the wearer icon.
 
 ```
-┌─────────────────────────────┐   audio + video    ┌──────────────────────────────────┐
-│  Glasses frame (3D printed) │ ─────────────────▶ │  Phone app                       │
-│  4+ mics · bridge camera    │      wireless      │  • live video, minimal delay     │
-│  MCU · small battery        │                    │  • direction / type / loudness   │
-└─────────────────────────────┘                    │  • overlay: "baby cry" at bottom │
-                                                   └──────────────────────────────────┘
+┌──────────────────────┐  BLE: direction  ┌──────────────────────┐  WatchConnectivity  ┌───────────────────┐
+│ Glasses (3D printed) │  + mono audio    │ iPhone app (Swift)   │  + notifications    │ Apple Watch app   │
+│ 4 mics · ESP32-S3    │ ───────────────▶ │ classify, filter,    │ ──────────────────▶ │ bird's-eye view,  │
+│ GCC-PHAT direction   │                  │ track sounds         │                     │ arrows, haptics   │
+└──────────────────────┘                  └──────────┬───────────┘                     └───────────────────┘
+                                                     │ async, small (not the live path)
+                                                     ▼
+                                   Firebase: Auth · Firestore (settings, history)
+                                   Storage (clips for retraining) · ML model hosting · FCM
 ```
 
-**Stretch goal (if we finish early):** remove the camera and put a mini projector in its place,
-so the overlay is shown inside the glasses instead of on a phone.
+**Inference runs on the iPhone, not in the cloud.** Live alerts must land in about 0.3 s and keep
+working with no signal. Firebase stores settings and history, collects retraining clips, hosts
+model updates, and can alert caregivers. The reasoning is in `docs/team-plan.md`.
 
 ## What the system derives from audio
 
-Every detected sound gets three attributes:
-
-| Attribute | Meaning | How |
-|---|---|---|
-| **Direction** | where the sound is, relative to the wearer | Time difference of arrival across the mics (GCC-PHAT), already implemented in `pi/` and `demo/` |
-| **Type** | what the sound is (siren, baby cry, doorbell, speech…) | YAMNet embeddings + our trained head, 13 classes today, in `ml/` |
-| **Volume / decibels** | how loud it is | Level measured from the mic signal; see open decisions |
+| Attribute | Meaning | How | Where |
+|---|---|---|---|
+| **Direction** | where the sound is; 0° ahead, clockwise, 180° behind | Time difference of arrival across the mics (GCC-PHAT), Python version in `pi/` and `demo/` | ESP32 |
+| **Type** | what the sound is (siren, baby cry, knock, speech…) | Apple's built-in sound classifier or our YAMNet + trained head (13 classes, `ml/`). Bake-off in week 1 | iPhone |
+| **Loudness** | how loud it is | Level from the mic signal, calibrated later | ESP32 + iPhone |
 
 ## Sound filters
 
@@ -68,20 +69,30 @@ of sound classes. Planned categories:
 - More as user needs come in
 
 Choosing which classes belong in each filter is a product decision driven by user needs, not a
-technical one. The classifier can add classes by retraining the head in `ml/`.
+technical one.
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Glasses | Seeed XIAO ESP32-S3, 4× INMP441 I2S mics, LiPo; C++ on PlatformIO, `esp-dsp`, NimBLE |
+| Link | BLE notifications, 50 Hz, angle + level + IMA ADPCM mono audio (packet in `docs/team-plan.md`) |
+| iPhone | SwiftUI, CoreBluetooth (background mode), SoundAnalysis or TensorFlowLiteSwift |
+| Watch | SwiftUI on watchOS, WatchConnectivity, WatchKit haptics |
+| Backend | Firebase: Auth (Sign in with Apple), Firestore, Cloud Storage, ML model downloader, Cloud Functions + FCM, Crashlytics |
+| Training | Python, `ml/` (unchanged) |
 
 ## Open decisions
 
-These are not settled. Each needs an owner and a call.
+Owners and deadlines are in `docs/team-plan.md`.
 
-| # | Decision | Options / notes |
-|---|---|---|
-| 1 | **How to show intensity** | Size, opacity, colour, or a dB number on the symbol. Needs a calibrated level estimate; mic gain and distance both affect it. |
-| 2 | **Which sound classes go in each filter** | Safety / privacy / babies lists above. Talk to users. |
-| 3 | **Microcontroller** | ESP32-S3 is the working pick (see `docs/hardware-bom.md`). Optimise for cost and latency; a smaller chip is fine if it can carry 4+ I2S mics and the video link. |
-| 4 | **Wireless link for audio + video** | Video forces Wi-Fi. See `docs/networking.md` for the audio path and latency budget. |
-| 5 | **Where the processing runs** | Ground truth says the phone. The MCU only captures and sends. |
-| 6 | **Mic count and placement** | 4+ at the corners; more mics improves direction but costs pins, wiring and battery. |
+1. Classifier: Apple built-in vs our YAMNet head
+2. Final BLE packet format
+3. Paid Apple Developer account ($99/yr, needed for push and TestFlight)
+4. How loudness is shown on the watch
+5. Which sound classes go in each filter, and which are urgent
+6. Cloud inference as a stretch goal (second opinion on Cloud Run, never the live path)
+7. Demo date
 
 ## Repo layout
 
@@ -89,40 +100,34 @@ These are not settled. Each needs an owner and a call.
 |---|---|
 | `demo/` | **Try it now on your laptop**: mic in, live direction ring in the browser, no hardware. See `demo/README.md`. |
 | `ml/` | Training pipeline for the sound classifier. Already trained; re-run to add classes or your own recordings. See `ml/README.md`. |
-| `pi/` | Earlier hat-mounted prototype on a Raspberry Pi (mic array, direction finding, classification, LED ring). Its direction and classifier code is the starting point for the phone app. See `pi/README.md`. |
-| `docs/` | Project overview PDF, mockups (`mockup.svg`, `clip_mockup.svg`, `pov_mockup.svg`), `hardware-bom.md`, `networking.md`, and `rendering/index.html`: an interactive 3D concept of the glasses frame (open the file directly, or `http://localhost:5050/rendering` while the demo runs). |
-
-## Hardware
-
-Working parts list and prices: `docs/hardware-bom.md` (roughly $40–45 for the recommended
-build). Core parts: Seeed XIAO ESP32-S3 Sense (MCU + OV2640 camera), 4× INMP441 I2S MEMS mics,
-a small LiPo battery.
+| `pi/` | Earlier hat-mounted Raspberry Pi prototype. Its `gcc_phat` and classifier code are what the firmware and iPhone app port. See `pi/README.md`. |
+| `docs/` | `team-plan.md` (lanes, contracts, timeline), `hardware-bom.md`, `networking.md`, mockups, project PDF, and `rendering/index.html`: an interactive 3D concept of the glasses frame. |
+| `firmware/`, `ios/`, `firebase/` | To be created in week 1; see the repo layout in `docs/team-plan.md`. |
 
 ## Status
 
-- [x] Direction of arrival from a 4-mic array (GCC-PHAT)
+- [x] Direction of arrival from a 4-mic array (GCC-PHAT, Python)
 - [x] Sound classifier: 13 classes, multi-label, 93.8% on held-out data, noise/overlap augmentation
 - [x] Laptop live demo (`demo/`)
-- [x] Hardware parts list and networking/latency plan (`docs/`)
-- [ ] Prototype 4-mic capture on the chosen MCU (breadboard, before printing anything)
-- [ ] Stream mic audio + camera video from the MCU to a phone
-- [ ] Phone app: live video with minimal delay
-- [ ] Phone app: direction/type overlay on the video
-- [ ] Decide how intensity is displayed
-- [ ] Sound-category filters in the app
+- [x] Team plan: lanes, contracts, timeline (`docs/team-plan.md`)
+- [ ] Prototype 4-mic capture on the ESP32-S3 (breadboard, before printing anything)
+- [ ] GCC-PHAT on the ESP32, BLE link to the iPhone
+- [ ] Classifier bake-off and `Detection` module on the iPhone
+- [ ] Watch app: bird's-eye view, arrows, haptics
+- [ ] iPhone app: live view, filters, settings, history
+- [ ] Firebase: auth, settings sync, history, retraining clips
 - [ ] Design and 3D-print the glasses frame
-- [ ] Test on real hardware and calibrate
+- [ ] Test on real hardware and calibrate loudness
 - [ ] Record our own clips (doorbell, dryer, smoke alarm, baby cry) and retrain
-- [ ] Stretch: replace the camera with a mini projector
 
 ## Docs that need reconciling
 
-Written before this README. Treat these as reference until updated:
+Written before the 2026-10-19 change. Treat these as reference until updated:
 
-- `docs/networking.md` treats the camera as optional and describes a ring/radar UI. Under the
-  ground truth the camera and live video are core, and the UI is a video overlay.
-- `docs/hardware-bom.md` lists LED indicators. The ground truth has no LEDs; the display is
-  the phone overlay (later, the projector).
-- `docs/mockup.svg`, `clip_mockup.svg` and `pov_mockup.svg` predate the glasses-frame
-  direction. Check each against this README.
-- `pi/` and the original project PDF describe the hat-mounted LED ring.
+- `docs/networking.md` recommends Wi-Fi + UDP and Flutter. Now BLE (iOS background) and
+  native Swift, with direction computed on the ESP32. Its latency numbers still apply.
+- `docs/hardware-bom.md` lists the XIAO **Sense** (camera) and LED indicators. Neither is
+  needed now: plain XIAO ESP32-S3, no LEDs.
+- `docs/rendering/index.html` models a bridge camera.
+- `docs/mockup.svg`, `clip_mockup.svg`, `pov_mockup.svg`, `pi/` and the project PDF describe
+  older directions (LED ring, phone video overlay).
