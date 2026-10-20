@@ -26,16 +26,15 @@ keep the boundaries.
 |---|---|---|---|
 | 1. Glasses & Input | _name_ | Get direction + audio from the mics onto the iPhone | `SoundFrame` stream |
 | 2. Detection (ML) | _name_ | Turn audio into "siren, 90° right, loud" | `SoundEvent` stream |
-| 3. Cloud & Links | _name_ | Firebase, phone → watch delivery, notifications | Settings, history, watch feed |
+| 3. Cloud & Links | _name_ | Firebase (free tier), phone → watch delivery, notifications | Settings, history, watch feed |
 | 4. Apps (UI) | _name_ | Everything the user sees and touches | The product |
 
 ## Architecture decisions (settled)
 
 - **Inference runs on the iPhone, not in Firebase.** Live alerts need to land within about
   0.3 s and must keep working with no signal. A cloud round trip adds 100–500 ms, and the device
-  goes deaf in a basement. Firebase handles everything that isn't time-critical. If we want to
-  show off cloud inference, that's Lane 3's stretch goal (a second-opinion model on Cloud Run),
-  never the live path.
+  goes deaf in a basement. Cloud inference would also need a paid plan. Firebase handles
+  settings and history only.
 - **Glasses → phone over BLE, not Wi-Fi.** iOS suspends a backgrounded app's Wi-Fi sockets.
   BLE accessories get the `bluetooth-central` background mode, so alerts keep coming with the
   phone locked in a pocket.
@@ -44,6 +43,39 @@ keep the boundaries.
   (ADPCM, about 64 kbit/s).
 - **Swift everywhere on Apple.** SwiftUI for iPhone and watchOS, one Xcode project, shared
   Swift package for the contracts below.
+- **$0 budget for software and services.** This is a demo. See [Free-tier limits](#free-tier-limits)
+  for what that rules out and the workaround for each.
+
+## Free-tier limits
+
+**Apple: free Personal Team, no paid Developer Program.** Every teammate signs in to Xcode
+with their own Apple ID and installs to their own devices over the cable.
+
+| Can't do on free | Workaround |
+|---|---|
+| Push notifications (APNs, so also FCM) | **Local** notifications from the iPhone app. These work on free accounts and still mirror to the watch with a haptic when the phone is locked. |
+| Sign in with Apple | Firebase **Anonymous Auth** (one tap, no UI). Email/password if we need named accounts. |
+| TestFlight / App Store | Install from Xcode. Apps **expire after 7 days**: re-install the night before the demo. |
+| Shared bundle IDs across Apple IDs | Each person builds with their own bundle ID suffix, e.g. `com.convergent.soundring.<name>`, set in a local, git-ignored `.xcconfig`. |
+
+Background BLE (`bluetooth-central`), WatchConnectivity, haptics and local notifications all
+work on a free account. If Xcode refuses the Time Sensitive Notifications capability on a
+Personal Team, drop it and use a plain local notification.
+
+**Firebase: Spark plan only, never upgrade to Blaze.** Blaze needs a credit card even when
+usage stays inside the free quotas.
+
+| Free on Spark (use) | Needs Blaze (don't use) | Instead |
+|---|---|---|
+| Authentication | Cloud Storage (Blaze-only since Feb 2026) | Save clips on the phone, AirDrop them to a laptop into `ml/data/my_clips/` |
+| Cloud Firestore (1 GiB, 50k reads / 20k writes per day) | Cloud Functions | Nothing server-side. The app writes to Firestore directly; rules enforce access. |
+| Crashlytics, Analytics | Cloud Run (cloud inference) | Not doing it |
+| Emulator Suite (local testing) | ML model hosting (skip; not needed for a demo) | Bundle the `.tflite` / Core ML model in the app; rebuild to update |
+
+Firestore quotas are plenty: batched history writes at a few hundred per day per tester.
+
+**Hardware is the only real cost**, about $40 for the parts in `docs/hardware-bom.md` minus
+the camera and LEDs. Ask Convergent for budget or borrow parts before buying.
 
 ## The contracts (agree in week 1, then freeze)
 
@@ -129,7 +161,7 @@ ios/Packages/SoundRingKit/
     Sources/Detection/           Lane 2   classifier, event tracking
     Sources/Cloud/               Lane 3   Firebase, WatchConnectivity, notifications
 ios/SoundRing/, ios/SoundRingWatch/  Lane 4   SwiftUI screens
-firebase/                        Lane 3   firestore.rules, storage.rules, functions/
+firebase/                        Lane 3   firestore.rules, firebase.json (emulators)
 ml/                              Lane 2   existing training pipeline, unchanged
 ```
 
@@ -190,7 +222,7 @@ and fast on real-room audio.
 - [ ] **W2** Unit tests driven by `WavFileFrameSource` on ESC-50 clips.
 - [ ] **W3** ADPCM test: encode/decode the test set, measure the accuracy drop. If it's over ~2 points, tell Lane 1 now.
 - [ ] **W3** Priority scoring (from `CLASS_PRIORITY`), `isUrgent` rule, label → `FilterCategory` mapping as a data file, not code.
-- [ ] **W4+** Record our own clips through the real glasses (doorbell, dryer, smoke alarm, baby cry), retrain the head in `ml/`, ship it through Firebase ML model hosting with Lane 3.
+- [ ] **W4+** Record our own clips through the real glasses (doorbell, dryer, smoke alarm, baby cry), retrain the head in `ml/`, bundle the new model in the app.
 - [ ] **W4+** Loudness calibration with Lane 1 (phone SPL meter app as the reference).
 
 **Targets:** median label latency ≤ 0.4 s from onset, false positives measured on 30 min of real
@@ -198,15 +230,15 @@ room noise, safety classes (siren, alarm, glass, horn) missed under 5%.
 
 ## Lane 3: Cloud & Links
 
-**Owns:** Firebase, getting events to the watch, notifications, and storing data for
+**Owns:** Firebase, getting events to the watch, notifications, and saving clips for
 retraining. Done when settings sync, history shows up, and an urgent sound buzzes the wrist with
-the phone locked.
+the phone locked. Everything stays on free tiers (see [Free-tier limits](#free-tier-limits)).
 
-**Stack:** Firebase (Auth, Firestore, Cloud Storage, ML model downloader, Cloud Functions, FCM,
-Crashlytics) via Swift Package Manager, WatchConnectivity, UserNotifications.
+**Stack:** Firebase on the Spark plan (Anonymous Auth, Firestore, Crashlytics) via Swift Package
+Manager, WatchConnectivity, UserNotifications (local only).
 
-- [ ] **W1** Create the Firebase project, add the iOS app, Sign in with Apple, local Emulator Suite.
-- [ ] **W1** Decide with the team: paid Apple Developer account ($99/yr). Free accounts can install on devices, but push notifications (FCM) and TestFlight need paid.
+- [ ] **W1** Create the Firebase project on Spark (don't add billing), add the iOS app, Anonymous Auth, local Emulator Suite.
+- [ ] **W1** Set up the per-person bundle ID `.xcconfig` with Lane 4 so everyone can build on a free Apple ID.
 - [ ] **W1** Firestore schema + security rules (each user reads and writes only their own data):
   ```
   users/{uid}                 displayName, filters: [category], buzzLabels: [label],
@@ -220,9 +252,8 @@ Crashlytics) via Swift Package Manager, WatchConnectivity, UserNotifications.
   - phone → watch: active events via `sendMessage` when reachable, `updateApplicationContext` as the latest-state fallback
   - watch → phone: settings changes
 - [ ] **W3** Urgent alerts: local notification with `.timeSensitive` interruption level. With the phone locked, iOS mirrors it to the watch with a haptic, so it works even when the watch app is closed.
-- [ ] **W4** "That was wrong" flow: upload the last 2 s of audio + the correct label to Cloud Storage (opt-in) as Lane 2's retraining data. Model hosting with Lane 2.
-- [ ] **W5 (optional)** Cloud Function: push a safety event to a caregiver's phone via FCM.
-- [ ] **Stretch** Cloud Run "second opinion" classifier: the phone uploads a clip after each event, a bigger model relabels it for history. Only if the team wants cloud inference in the demo. Never on the live path.
+- [ ] **W4** "That was wrong" flow: save the last 2 s of audio as a `.wav` named with the correct label on the phone, and export through the share sheet (AirDrop to a laptop, into `ml/data/my_clips/<label>/`). This is Lane 2's retraining data.
+- [ ] **W5 (optional)** Caregiver view: a second phone signed in to the same account reads the `events` collection live with a Firestore listener. No push needed.
 
 **Notes:** a phone notification only mirrors to the watch when the iPhone is locked. When the
 phone is unlocked, the phone shows it instead. Test both.
@@ -254,8 +285,9 @@ hardware until week 4.
 
 ## Team-wide
 
-- **Hardware for the team:** everyone on Lanes 1–4 needs a Mac with current Xcode. At least one
-  iPhone + paired Apple Watch for testing (BLE and haptics need real devices).
+- **Hardware for the team:** everyone on Lanes 1–4 needs a Mac with current Xcode and a free
+  Apple ID. At least one iPhone + paired Apple Watch for testing (BLE and haptics need real
+  devices). The demo phone and watch must be the Apple ID owner's devices, installed from their Mac.
 - **Git:** one branch per feature, PR into `main`, one reviewer from another lane. Contract
   changes (`Sources/Models/`) need all four.
 - **Weekly sync (15 min):** each lane reports what's done against its checklist, plus anything
@@ -267,8 +299,8 @@ hardware until week 4.
 |---|---|---|---|
 | 1 | Classifier: Apple built-in vs our YAMNet head | Lane 2 | End of W1 |
 | 2 | Final BLE packet format | Lane 1 + 2 | End of W1 |
-| 3 | Paid Apple Developer account | Team | End of W1 |
+| 3 | Hardware money: Convergent budget or borrowed parts | Team | End of W1 |
 | 4 | How loudness is shown on the watch (size, opacity, rings, number) | Lane 4 + 2 | W3 |
 | 5 | Which sounds go in each filter, and which are urgent | Team, from user interviews | W3 |
-| 6 | Cloud inference stretch goal: yes or no | Team | W4 |
+| 6 | Whose iPhone + watch is the demo device | Team | W4 |
 | 7 | Demo date | Team | Now |

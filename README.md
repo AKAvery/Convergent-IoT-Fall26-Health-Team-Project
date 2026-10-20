@@ -42,13 +42,19 @@ down (behind) from the wearer icon.
 └──────────────────────┘                  └──────────┬───────────┘                     └───────────────────┘
                                                      │ async, small (not the live path)
                                                      ▼
-                                   Firebase: Auth · Firestore (settings, history)
-                                   Storage (clips for retraining) · ML model hosting · FCM
+                                   Firebase (free Spark plan):
+                                   Anonymous Auth · Firestore (settings, history)
 ```
 
 **Inference runs on the iPhone, not in the cloud.** Live alerts must land in about 0.3 s and keep
-working with no signal. Firebase stores settings and history, collects retraining clips, hosts
-model updates, and can alert caregivers. The reasoning is in `docs/team-plan.md`.
+working with no signal. Firebase stores settings and history. The reasoning is in
+`docs/team-plan.md`.
+
+**$0 for software and services.** This is a demo: free Apple ID in Xcode (no paid Developer
+Program) and Firebase Spark only (never Blaze). That rules out push, Sign in with Apple,
+TestFlight, Cloud Storage and Cloud Functions; the workaround for each is in
+[`docs/team-plan.md`](docs/team-plan.md#free-tier-limits). Hardware parts (~$40) are the only
+cost.
 
 ## What the system derives from audio
 
@@ -77,9 +83,10 @@ technical one.
 |---|---|
 | Glasses | Seeed XIAO ESP32-S3, 4× INMP441 I2S mics, LiPo; C++ on PlatformIO, `esp-dsp`, NimBLE |
 | Link | BLE notifications, 50 Hz, angle + level + IMA ADPCM mono audio (packet in `docs/team-plan.md`) |
-| iPhone | SwiftUI, CoreBluetooth (background mode), SoundAnalysis or TensorFlowLiteSwift |
+| iPhone | SwiftUI, CoreBluetooth (background mode), SoundAnalysis or TensorFlowLiteSwift, local notifications |
 | Watch | SwiftUI on watchOS, WatchConnectivity, WatchKit haptics |
-| Backend | Firebase: Auth (Sign in with Apple), Firestore, Cloud Storage, ML model downloader, Cloud Functions + FCM, Crashlytics |
+| Backend | Firebase Spark (free): Anonymous Auth, Firestore, Crashlytics |
+| Distribution | Install from Xcode with a free Apple ID; re-install every 7 days |
 | Training | Python, `ml/` (unchanged) |
 
 ## Open decisions
@@ -88,10 +95,10 @@ Owners and deadlines are in `docs/team-plan.md`.
 
 1. Classifier: Apple built-in vs our YAMNet head
 2. Final BLE packet format
-3. Paid Apple Developer account ($99/yr, needed for push and TestFlight)
+3. Hardware money: Convergent budget or borrowed parts
 4. How loudness is shown on the watch
 5. Which sound classes go in each filter, and which are urgent
-6. Cloud inference as a stretch goal (second opinion on Cloud Run, never the live path)
+6. Whose iPhone + watch is the demo device
 7. Demo date
 
 ## Repo layout
@@ -115,7 +122,7 @@ Owners and deadlines are in `docs/team-plan.md`.
 - [ ] Classifier bake-off and `Detection` module on the iPhone
 - [ ] Watch app: bird's-eye view, arrows, haptics
 - [ ] iPhone app: live view, filters, settings, history
-- [ ] Firebase: auth, settings sync, history, retraining clips
+- [ ] Firebase: auth, settings sync, history
 - [ ] Design and 3D-print the glasses frame
 - [ ] Test on real hardware and calibrate loudness
 - [ ] Record our own clips (doorbell, dryer, smoke alarm, baby cry) and retrain
