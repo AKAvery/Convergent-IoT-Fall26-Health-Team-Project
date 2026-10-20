@@ -58,6 +58,15 @@ with their own Apple ID and installs to their own devices over the cable.
 | TestFlight / App Store | Install from Xcode. Apps **expire after 7 days**: re-install the night before the demo. |
 | Shared bundle IDs across Apple IDs | Each person builds with their own bundle ID suffix, e.g. `com.convergent.soundring.<name>`, set in a local, git-ignored `.xcconfig`. |
 
+**The 7-day expiry is less work than it sounds.** Every Run from Xcode with the device plugged
+in restarts the 7 days, so during development it never comes up. Only the demo device needs a
+re-install the night before. Switching frameworks doesn't help: the expiry comes from Apple's
+code signing, so React Native, Flutter and Expo apps expire the same way. React Native can't
+build watch apps either, Expo Go has no BLE, and Safari on iPhone has no Bluetooth (so no web
+app). If plugging in gets old, SideStore (free) re-signs the app with your own Apple ID over
+Wi-Fi in the background. Also ask Convergent or a UT professor whether UT is in Apple's free
+University Program; check whether its installs last longer than 7 days.
+
 Background BLE (`bluetooth-central`), WatchConnectivity, haptics and local notifications all
 work on a free account. If Xcode refuses the Time Sensitive Notifications capability on a
 Personal Team, drop it and use a plain local notification.
