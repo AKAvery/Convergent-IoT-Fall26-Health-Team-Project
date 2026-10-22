@@ -111,13 +111,13 @@ Each choice in one line, then the reason in plain words.
 
 | Part | Pick | Why |
 |---|---|---|
-| Board | **Seeed XIAO ESP32-C3** (~$5 each) | Each box only measures loudness and compresses audio, with no heavy math, so the cheap C3 is enough. It has Bluetooth LE and charges a LiPo on its own. The plain XIAO ESP32-S3 (~$7.50) also works if the team already has some. |
+| Board | **Seeed XIAO ESP32-S3**, plain, not Sense (ordered 2026-10-22) | Has Bluetooth LE and I2S and charges a LiPo on its own. The plan first picked the cheaper ESP32-C3; the S3 runs the same code. |
 | Mic | **1× INMP441** per box (I2S) | Same mic as before. One mic per board removes the hardest part of the glasses build (4 mics sharing one clock). |
-| Battery | Small 3.7 V LiPo, 300–500 mAh | Plugs straight into the XIAO's battery pads |
+| Battery | KBT 3.7 V 500 mAh LiPo (ordered) | Solders to the XIAO's BAT+ / BAT− pads; check polarity first |
 | Body | Mini breadboard in a 3D-printed or off-the-shelf box with a clip | Swap to perfboard once the wiring is settled |
 | Placement | Chest, upper back, left shoulder, right shoulder | Shoulders, not arms. Arms swing and would point the wrong way. |
 
-Rough cost: about **$75** for 4 boxes (breakdown in `docs/hardware-bom.md`).
+Cost: **$107.92** ordered for 4 boxes plus spares (`docs/hardware-bom.md`). Cases not bought yet.
 
 ### Box → phone link
 
