@@ -11,6 +11,10 @@ privacy, babies). Texas Convergent IoT, Fall 2026.
 disagrees with it, this file wins and the other doc needs updating (see
 [Docs that need reconciling](#docs-that-need-reconciling)).
 
+**Proposed change (2026-10-22): replace the glasses with 4 body-worn sound boxes, direction
+from loudness instead of timing. See [`docs/body-boxes-plan.md`](docs/body-boxes-plan.md). Layers, tech stack and data flow (phone app first): [`docs/architecture.md`](docs/architecture.md).**
+The sections below still describe the glasses until the team decides.
+
 **Who builds what, week by week, and the contracts between lanes:
 [`docs/team-plan.md`](docs/team-plan.md).**
 
