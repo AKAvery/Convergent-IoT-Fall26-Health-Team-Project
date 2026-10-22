@@ -94,7 +94,7 @@ usage stays inside the free quotas.
 
 Firestore quotas are plenty: batched history writes at a few hundred per day per tester.
 
-**Hardware is the only real cost**, about $75 for 4 boxes (`docs/hardware-bom.md`). Ask
+**Hardware is the only real cost**: $107.92 ordered 2026-10-22 (`docs/hardware-bom.md`). Ask
 Convergent for budget or borrow parts before buying.
 
 ## The contracts (agree in week 1, then freeze)
@@ -232,10 +232,10 @@ The watch app starts only after week 5 is done, if there's time.
 **Owns:** the 4 boxes, the firmware, and the iPhone code that receives BLE and turns it into
 `BoxLevel`s and `SoundFrame`s. Done when Lane 2 can swap `WavFileBoxSource` for the real thing.
 
-**Stack:** Seeed XIAO ESP32-C3, 1× INMP441 I2S mic per box, LiPo, C++ on PlatformIO
+**Stack:** Seeed XIAO ESP32-S3, 1× INMP441 I2S mic per box, LiPo, C++ on PlatformIO
 (Arduino-ESP32), NimBLE. iPhone side: CoreBluetooth.
 
-- [ ] **W1** Order parts: `docs/hardware-bom.md`.
+- [x] **W1** Order parts: `docs/hardware-bom.md`. Ordered 2026-10-22.
 - [ ] **W1** Breadboard one box. Print the peak level (dBFS) every 100 ms to the serial monitor. Auto-gain off.
 - [ ] **W1** **Body-shadow test** with 2 boxes (chest + back): clap in front, then behind. Pass = the facing box reads ≥ 6 dB louder every time. Report the result to the team.
 - [ ] **W1** Finalise the BLE contract with Lane 2.

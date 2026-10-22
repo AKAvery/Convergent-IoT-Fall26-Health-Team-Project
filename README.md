@@ -23,7 +23,7 @@ disagrees with it, this file wins and the other doc needs updating (see
 **4 sound boxes**, worn on the chest (FRONT), upper back (BACK), left shoulder (LEFT) and right
 shoulder (RIGHT). Each box has:
 
-- **An ESP32-C3** (Seeed XIAO)
+- **An ESP32-S3** (Seeed XIAO)
 - **1 microphone** (INMP441)
 - **A small battery** and a mini breadboard in a clip-on case
 
@@ -53,7 +53,7 @@ stays the brain.
 - **$0 for software and services.** Free Apple ID in Xcode (no paid Developer Program) and
   Firebase Spark only (never Blaze). That rules out push, Sign in with Apple, TestFlight, Cloud
   Storage and Cloud Functions; the workaround for each is in
-  [`docs/team-plan.md`](docs/team-plan.md#free-tier-limits). Hardware (~$75 for 4 boxes) is the
+  [`docs/team-plan.md`](docs/team-plan.md#free-tier-limits). Hardware ($107.92 ordered, `docs/hardware-bom.md`) is the
   only cost.
 
 ## What the system works out from audio
@@ -81,7 +81,7 @@ technical one.
 
 | Part | Choice |
 |---|---|
-| Sound boxes (×4) | Seeed XIAO ESP32-C3, INMP441 I2S mic, LiPo; C++ (Arduino on PlatformIO), NimBLE |
+| Sound boxes (×4) | Seeed XIAO ESP32-S3, INMP441 I2S mic, LiPo; C++ (Arduino on PlatformIO), NimBLE |
 | Link | Bluetooth LE, each box straight to the iPhone: loudness 10×/s from every box, IMA ADPCM audio from the loudest box only |
 | iPhone app | Swift, SwiftUI, CoreBluetooth (background mode), Accelerate, TensorFlowLiteSwift, local notifications |
 | Model | YAMNet + our trained head, `.tflite` files from `ml/models/`, bundled in the app |
@@ -94,7 +94,7 @@ technical one.
 
 Owners and deadlines are in `docs/team-plan.md`.
 
-1. Hardware money: Convergent budget or borrowed parts
+1. ~~Hardware money~~ Settled 2026-10-22: parts ordered for $107.92, reimbursed through Avery Allen (`docs/hardware-bom.md`)
 2. How loudness is shown in the app
 3. Which sound classes go in each filter, and which are urgent
 4. Whose iPhone is the demo device
@@ -115,6 +115,7 @@ Owners and deadlines are in `docs/team-plan.md`.
 - [x] Sound classifier: 13 classes, multi-label, 93.8% on held-out data, noise/overlap augmentation
 - [x] Laptop live demo (`demo/`)
 - [x] Architecture and team plan (`docs/architecture.md`, `docs/team-plan.md`)
+- [x] Parts ordered for 4 boxes plus spares (`docs/hardware-bom.md`)
 - [ ] Body-shadow test: 2 boxes, chest and back, the box facing a clap reads ≥ 6 dB louder
 - [ ] iPhone app on fake sounds: live view, filters, settings
 - [ ] YAMNet + head running inside the iPhone app on a `.wav` file

@@ -70,7 +70,7 @@ sounds.
 
 | # | Layer | Does | Tech | Goes to |
 |---|---|---|---|---|
-| 1 | Sound boxes (×4) | Hear sound, measure loudness | ESP32-C3 + mic, Arduino C++ | **The phone, over Bluetooth: loudness + audio** |
+| 1 | Sound boxes (×4) | Hear sound, measure loudness | ESP32-S3 + mic, Arduino C++ | **The phone, over Bluetooth: loudness + audio** |
 | 2 | Input | Catch the Bluetooth data, unzip the audio | Swift, CoreBluetooth | **Preprocessing: audio + loudness** |
 | 3 | Preprocessing | Find direction, ignore silence, keep the last 1 s | Swift | **The model: 1 s of audio + the angle** |
 | 4 | Model (inference) | YAMNet names the sound | TensorFlow Lite, our `.tflite` files | **The screen: "horn, behind you, loud"** |

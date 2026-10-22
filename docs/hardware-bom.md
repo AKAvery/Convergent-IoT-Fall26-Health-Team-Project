@@ -3,38 +3,41 @@
 Goal: 4 identical clip-on boxes (FRONT, BACK, LEFT, RIGHT). Each one is an ESP32 board, one
 mic, a battery and a mini breadboard in a case. How they're used: `docs/body-boxes-plan.md`.
 
-Prices are from October 2026 and marked "unverified" where only a non-US retailer was checked.
-Re-check before buying; stock and price move.
+## Ordered (2026-10-22)
 
-## Per box
+Ordered on Amazon by Lydia Du. Order subtotal **$107.92**, before tax and shipping. Per-item
+prices weren't recorded.
 
-| Part | Pick | Per box | Price | Link | Status |
+| Part | Exact listing | Qty ordered | Units | Needed for 4 boxes | Spare |
 |---|---|---|---|---|---|
-| Board | Seeed XIAO ESP32-C3 (Bluetooth LE 5, I2S, battery charging on board) | 1 | ~$5 | https://www.seeedstudio.com/Seeed-XIAO-ESP32C3-p-5431.html | unverified (UK: £4.80 at The Pi Hut) |
-| Mic | INMP441 I2S MEMS mic module | 1 | ~$2–4 | https://www.amazon.com/s?k=INMP441+microphone+module+5+pack | unverified; buy a 5-pack (1 spare) |
-| Battery | Adafruit LiPo 3.7 V 500 mAh (29 × 36 × 4.75 mm) | 1 | $7.95 | https://www.adafruit.com/product/1578 | verified |
-| Breadboard | Mini 170-point breadboard | 1 | ~$1 | - | estimate |
-| Case + clip | 3D-printed box, or a small project box, with a clothing clip or Velcro strap | 1 | ~$1–2 | - | estimate |
+| Board | Seeed Studio XIAO ESP32-S3, plain (not Sense), 3-pack. BLE 5.0, Wi-Fi, 8 MB PSRAM, 8 MB flash, LiPo charging on board. [B0DJ6NQFKX](https://www.amazon.com/dp/B0DJ6NQFKX) | 2 packs | 6 | 4 | 2 |
+| Mic | AITRIP INMP441 I2S MEMS mic module, 5-pack. [B092HWW4RS](https://www.amazon.com/dp/B092HWW4RS) | 1 pack | 5 | 4 | 1 |
+| Battery | KBT 3.7 V 500 mAh LiPo, size 503035, PH 1.25 and PH 2.0 JST leads. [B0BJPG4B72](https://www.amazon.com/dp/B0BJPG4B72) | 4 | 4 | 4 | 0 |
+| Breadboard | WWZMDiB mini breadboard, 170 tie points, 6-pack, with male/female jumper wires. [B09YXQJMTG](https://www.amazon.com/dp/B09YXQJMTG) | 1 pack | 6 | 4 | 2 |
 
-No separate charger: the XIAO charges the LiPo itself.
+**Not ordered yet:** cases and clips (3D-printed box, or a small project box with a clothing
+clip or Velcro strap), and thin wire for the battery.
 
-## Total for 4 boxes
+The boards are the **XIAO ESP32-S3**, not the ESP32-C3 the plan first picked. It does
+everything a box needs (Bluetooth LE, I2S, LiPo charging) and runs the same Arduino-ESP32 and
+NimBLE code. It probably draws more current than the C3, so measure battery life on one box
+before trusting the 500 mAh estimate.
 
-4 × $5 board + ~$12 mic 5-pack + 4 × $7.95 battery + ~$4 breadboards + ~$6 cases and wire ≈
-**$75**. Ask Convergent for budget or borrow parts before buying.
+## Check before powering anything
 
-## Alternatives
-
-| Part | Option | Notes |
-|---|---|---|
-| Board | Seeed XIAO ESP32-S3 (plain, not Sense), ~$7.50 | Works the same; use it if the team already has some. The Sense version's camera isn't needed. |
-| Mic | Adafruit SPH0645LM4H I2S breakout, $6.95, https://www.adafruit.com/product/3421 | Better documented, pricier. Known ESP32 quirk: data is bit-shifted; see Adafruit's guide. |
-| Battery | Smaller LiPo (250–350 mAh) | Lighter box, shorter runtime. Measure battery life on one box first. |
+1. **Battery polarity.** Generic LiPo leads don't follow one red/black convention for any
+   given board. Check with a multimeter before connecting. Reversed polarity can destroy the
+   board's charger.
+2. **Battery connection.** The XIAO ESP32-S3 has no battery plug, only **BAT+ / BAT−** solder
+   pads on the underside. Cut the JST plug off and solder the leads to the pads, or solder a
+   matching JST socket to the pads.
+3. **Headers.** Solder header pins on the XIAO boards and mic modules if they arrive loose.
+4. **One box first.** Build and test one box end to end before soldering the other three.
 
 ## Wiring (each box)
 
 INMP441 → XIAO: VDD → 3V3, GND → GND, SCK → I2S bit clock pin, WS → I2S word select pin,
-SD → I2S data in, L/R → GND (left channel). Any free GPIOs work on the C3; write the pin
+SD → I2S data in, L/R → GND (left channel). Any free GPIOs work on the S3. Write the pin
 numbers in the firmware config and keep them the same on all 4 boxes.
 
 ## Rules that matter
@@ -45,13 +48,21 @@ numbers in the firmware config and keep them the same on all 4 boxes.
    box.
 3. **Point the mic hole outward**, away from the body, so the body blocks sound from the other
    side.
-4. **Build one box first, test it, then copy it 3×.** Do the 2-box body-shadow test in
-   `docs/body-boxes-plan.md` before building all 4.
+4. **Do the 2-box body-shadow test** in `docs/body-boxes-plan.md` before building all 4.
+
+## Alternatives (not bought)
+
+| Part | Option | Notes |
+|---|---|---|
+| Board | Seeed XIAO ESP32-C3, ~$5 | The original pick. Cheaper, lower power, same code. |
+| Mic | Adafruit SPH0645LM4H I2S breakout, $6.95, https://www.adafruit.com/product/3421 | Better documented, pricier. Known ESP32 quirk: data is bit-shifted; see Adafruit's guide. |
+| Battery | Smaller LiPo (250–350 mAh) | Lighter box, shorter runtime. |
 
 ## Sources
 
-- Seeed XIAO ESP32-C3: https://www.seeedstudio.com/Seeed-XIAO-ESP32C3-p-5431.html,
-  UK price: https://thepihut.com/products/seeed-xiao-esp32c3
-- Adafruit LiPo 500 mAh: https://www.adafruit.com/product/1578
-- Adafruit SPH0645 I2S mic: https://www.adafruit.com/product/3421
-- ESP-IDF I2S docs: https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-reference/peripherals/i2s.html
+- XIAO ESP32-S3 3-pack: https://www.amazon.com/dp/B0DJ6NQFKX
+- AITRIP INMP441 5-pack: https://www.amazon.com/dp/B092HWW4RS
+- KBT 500 mAh LiPo: https://www.amazon.com/dp/B0BJPG4B72
+- WWZMDiB mini breadboard 6-pack: https://www.amazon.com/dp/B09YXQJMTG
+- Seeed XIAO ESP32-S3 wiki (pinout, battery pads): https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/
+- ESP-IDF I2S docs (ESP32-S3): https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html
