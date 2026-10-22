@@ -129,8 +129,6 @@ Owners and deadlines are in `docs/team-plan.md`.
 
 Written before the switch to body-worn boxes (2026-10-22). Treat these as history:
 
-- `docs/networking.md`: Wi-Fi + UDP, Flutter, 4 raw channels from one board. Now BLE from 4
-  boxes, native Swift. Its classifier latency measurements still apply.
 - `docs/rendering/index.html`: 3D model of the old glasses frame.
 - `docs/mockup.svg`, `clip_mockup.svg`, `pov_mockup.svg`, `pi/` and the project PDF describe
   older directions (glasses, LED ring, phone video overlay).

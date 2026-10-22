@@ -124,6 +124,24 @@ pass it. Digital attenuation has no room or mic noise, so the quiet rows measure
 ranking; `--playback` is the honest test of the laptop setup (and shows whether loud volumes
 clip the mic).
 
+**Onset latency (measured 2026-10-16).** How long after a sound starts the classifier first
+fires, on 120 ESC-50 clips of our classes with 2 s of quiet before each, laptop CPU. Moved here
+from the retired `docs/networking.md`.
+
+| hop | persist | median | p90 | missed |
+|---|---|---|---|---|
+| 0.25 s (old demo) | 2 | 0.50 s | 1.05 s | 1 |
+| 0.25 s | 1 | 0.25 s | 0.75 s | 0 |
+| 0.10 s | 2 | 0.30 s | 0.81 s | 0 |
+| 0.10 s | 1 | 0.20 s | 0.61 s | 0 |
+| 0.05 s | 1 | 0.18 s | 0.61 s | 0 |
+
+Inference is 0.6 ms per 1 s window. The classifier fires from the first fraction of a sound; it
+does not need the window full. The demo ships hop 0.1 s with **persist 5**, not 2: this harness
+showed hop 0.1 / persist 2 doubled wrong labels (0.13 to 0.24 of clips) and false fires (9.3 to
+22.7 per minute). Persist 5 keeps the same 0.5 s evidence span as the old demo, so expect a median
+near 0.5 s, not 0.3 s. That configuration's onset latency has not been measured separately.
+
 **Thresholds.** `models/thresholds.json` (and the copy in `pi/`) currently hold values calibrated
 with this harness under the streaming rule (2026-10-17: alarm 0.80, car_horn 0.75, siren 0.60,
 glass_break 0.50, speech 0.80, ...). They are much higher than `train_head.py`'s clip-level
