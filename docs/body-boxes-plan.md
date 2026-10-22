@@ -1,18 +1,14 @@
-# Plan: 4 body-worn sound boxes (replaces the glasses)
+# 4 body-worn sound boxes: how direction works
 
-Proposed 2026-10-22. Instead of one glasses frame with 4 mics, the wearer clips on **4 small
-boxes**, one per side of the body. Each box is an ESP32, one mic, a battery and a mini
-breadboard. The iPhone and Watch apps stay the same.
-
-Until the README is updated, this doc describes the new hardware and how direction works.
-Everything about the apps, Firebase and the $0 budget in `README.md` and `docs/team-plan.md`
-still applies.
+Decided 2026-10-22, replacing the glasses. The wearer clips on **4 small boxes**, one per side
+of the body. Each box is an ESP32, one mic, a battery and a mini breadboard. Parts are in
+`docs/hardware-bom.md`; the BLE contract is in `docs/team-plan.md`.
 
 ```
  FRONT box (chest)
- LEFT box (left shoulder)    ──BLE──▶  iPhone app  ──▶  Apple Watch
- RIGHT box (right shoulder)            (direction +      (arrow + label
- BACK box (upper back)                  YAMNet)           + buzz)
+ LEFT box (left shoulder)    ──BLE──▶  iPhone app
+ RIGHT box (right shoulder)            direction + YAMNet
+ BACK box (upper back)                 → arrow + label + buzz
 ```
 
 ## The big idea: 4 separate ears, not one mic array
@@ -71,7 +67,7 @@ cancel), point at the loudest box instead.
 |---|---|---|
 | Which box is where? | Each box is flashed with its side (FRONT / BACK / LEFT / RIGHT), advertises it in its BLE name (`SoundBox-FRONT`), and has a matching sticker | Wears each box on the side its sticker says |
 | Cheap mics differ in sensitivity | The phone tracks each box's **quiet level**: the quietest it has been over the last 10 s. Loudness = current level minus that. A loud mic and a quiet mic both read "+8 dB" for the same sound. | Nothing |
-| Boxes on a moving body | Direction is relative to the body anyway. The top of the Watch view = the way your chest faces. | Nothing |
+| Boxes on a moving body | Direction is relative to the body anyway. The top of the app's radar = the way your chest faces. | Nothing |
 
 Side effect of the rolling quiet level: a steady noise (a running dryer) slowly becomes "quiet"
 and stops triggering. That's mostly what we want.
@@ -104,7 +100,7 @@ two nearly equal boxes.
 2. Phone: loudness above quiet level → tug of war → arrow angle
 3. Phone tells the loudest box "send audio"; the others stay quiet
 4. That box streams compressed audio → YAMNet → "car horn"
-5. Watch shows "car horn ↗" and buzzes if urgent
+5. Phone shows "car horn ↗" and buzzes if urgent (the watch app later shows the same)
 ```
 
 ## Tech stack: what to pick
@@ -115,14 +111,13 @@ Each choice in one line, then the reason in plain words.
 
 | Part | Pick | Why |
 |---|---|---|
-| Board | **Seeed XIAO ESP32-C3** (~$5 each, verify price) | Each box only measures loudness and compresses audio now, with no heavy math, so the cheaper C3 is enough. It has Bluetooth LE and charges a LiPo on its own. The XIAO ESP32-S3 (~$14) also works if the team already has some. |
+| Board | **Seeed XIAO ESP32-C3** (~$5 each) | Each box only measures loudness and compresses audio, with no heavy math, so the cheap C3 is enough. It has Bluetooth LE and charges a LiPo on its own. The plain XIAO ESP32-S3 (~$7.50) also works if the team already has some. |
 | Mic | **1× INMP441** per box (I2S) | Same mic as before. One mic per board removes the hardest part of the glasses build (4 mics sharing one clock). |
 | Battery | Small 3.7 V LiPo, 300–500 mAh | Plugs straight into the XIAO's battery pads |
 | Body | Mini breadboard in a 3D-printed or off-the-shelf box with a clip | Swap to perfboard once the wiring is settled |
 | Placement | Chest, upper back, left shoulder, right shoulder | Shoulders, not arms. Arms swing and would point the wrong way. |
 
-Rough cost: 4 boxes × (~$5 board + ~$3 mic + ~$6 battery + ~$1 breadboard) ≈ **$60**, plus
-cases. About $95 with S3 boards instead.
+Rough cost: about **$75** for 4 boxes (breakdown in `docs/hardware-bom.md`).
 
 ### Box → phone link
 
@@ -140,7 +135,7 @@ Each box has three BLE characteristics:
 | Characteristic | Direction | Content |
 |---|---|---|
 | `level` | box → phone, notify, 10 Hz | seq (uint16), peak dB of the last 0.1 s × 10 (int16), flags (clipped, low battery) |
-| `audio` | box → phone, notify, 50 Hz, **only when told to** | same 169-byte IMA ADPCM packet as `docs/team-plan.md`, azimuth field unused |
+| `audio` | box → phone, notify, 50 Hz, **only when told to** | 169-byte IMA ADPCM packet; exact bytes in `docs/team-plan.md` |
 | `control` | phone → box, write | 1 = start audio, 0 = stop |
 
 ### Firmware
@@ -149,26 +144,26 @@ Each box has three BLE characteristics:
 Arduino is the easiest ESP32 setup for a student team. One code base for all 4 boxes; the side
 (FRONT, BACK, LEFT, RIGHT) is a single constant changed before flashing each box.
 
-### iPhone, Watch, cloud, ML: unchanged
+### iPhone, cloud, model
 
 | Layer | Pick |
 |---|---|
 | iPhone | SwiftUI, CoreBluetooth, local notifications |
-| Watch | SwiftUI on watchOS, WatchConnectivity, haptics |
-| Classifier | YAMNet + our trained head (`ml/`, TensorFlowLiteSwift) or Apple's built-in SoundAnalysis. Week-1 bake-off still decides. |
+| Watch (later) | SwiftUI on watchOS, WatchConnectivity, haptics |
+| Classifier | YAMNet + our trained head (`ml/models/`, TensorFlowLiteSwift). Already trained. |
 | Backend | Firebase Spark (free): Anonymous Auth, Firestore |
 
 **New on the iPhone:** the direction code moves here from the chip. It's about 30 lines of
 Swift: rolling quiet level per box, peak hold, tug of war, box switching.
 
-## What changes for each lane
+## What changed for each lane
 
 | Lane | Change |
 |---|---|
-| 1. Hardware & Input | **Much easier.** No 4-mic clock sharing and no GCC-PHAT on the chip. Build 1 box, then copy it 3×. iPhone side now manages 4 BLE connections instead of 1. |
+| 1. Boxes & Input | **Much easier.** No 4-mic clock sharing and no GCC-PHAT on the chip. Build 1 box, then copy it 3×. iPhone side now manages 4 BLE connections instead of 1. |
 | 2. Detection | Adds the direction code above and box switching. Classifier work is unchanged. |
 | 3. Cloud & Links | No change |
-| 4. Apps | Add a "boxes" screen: 4 dots (FRONT/BACK/LEFT/RIGHT) showing connected + battery. Watch view unchanged. |
+| 4. iPhone app | Add a "boxes" screen: 4 dots (FRONT/BACK/LEFT/RIGHT) showing connected + battery. |
 
 ## First test (week 1, one evening)
 
@@ -179,10 +174,3 @@ Swift: rolling quiet level per box, peak hold, tug of war, box switching.
 
 If that passes, body-shadow direction works and the rest is building. If it fails, try placing
 the boxes farther apart or facing outward before changing the plan.
-
-## Docs to update if the team adopts this
-
-- `README.md`: "What we are building," the diagram, the Direction row, Stack, Status
-- `docs/team-plan.md`: Lane 1 checklist and stack, BLE packet contract (`SoundFrame` gets a box ID)
-- `docs/hardware-bom.md`: new parts list for 4 boxes
-- `docs/rendering/index.html`: still models the glasses

@@ -2,71 +2,67 @@
 
 Fortnite's "visualize sound effects," in real life.
 
-3D-printed glasses that hear, locate and name the sounds around you, then show them on your
-Apple Watch as arrows around a bird's-eye view of you, with a full iPhone app behind it. Built
-for people who are deaf or hard of hearing, and for anyone who wants sound awareness (safety,
-privacy, babies). Texas Convergent IoT, Fall 2026.
+Four small sound boxes worn on the body hear the sounds around you. The iPhone app works out
+where each sound came from and what it is, then shows it as an arrow around a bird's-eye view
+of you. Built for people who are deaf or hard of hearing, and for anyone who wants sound
+awareness (safety, privacy, babies). Texas Convergent IoT, Fall 2026.
 
 **This README is the source of ground truth for the project.** If another doc in the repo
 disagrees with it, this file wins and the other doc needs updating (see
 [Docs that need reconciling](#docs-that-need-reconciling)).
 
-**Proposed change (2026-10-22): replace the glasses with 4 body-worn sound boxes, direction
-from loudness instead of timing. See [`docs/body-boxes-plan.md`](docs/body-boxes-plan.md). Layers, tech stack and data flow (phone app first): [`docs/architecture.md`](docs/architecture.md).**
-The sections below still describe the glasses until the team decides.
-
-**Who builds what, week by week, and the contracts between lanes:
-[`docs/team-plan.md`](docs/team-plan.md).**
+| Read next | For |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | **Start here.** The layers, the tech stack and where data goes, with a diagram |
+| [`docs/body-boxes-plan.md`](docs/body-boxes-plan.md) | How the boxes work out direction from loudness |
+| [`docs/team-plan.md`](docs/team-plan.md) | Who builds what, week by week, and the contracts between lanes |
+| [`docs/hardware-bom.md`](docs/hardware-bom.md) | Parts list for the 4 boxes |
 
 ## What we are building
 
-A 3D-printed glasses frame carrying:
+**4 sound boxes**, worn on the chest (FRONT), upper back (BACK), left shoulder (LEFT) and right
+shoulder (RIGHT). Each box has:
 
-- **4 microphones**, at the corners of the frame
-- **A small battery**
-- **An ESP32-S3**, which computes sound direction and streams it with one audio channel over BLE
+- **An ESP32-C3** (Seeed XIAO)
+- **1 microphone** (INMP441)
+- **A small battery** and a mini breadboard in a clip-on case
 
-There is **no camera** (changed 2026-10-19).
+The boxes send to an **iPhone app (Swift)**, which does all the work:
 
-The glasses send to an **iPhone app (Swift)**, which classifies the sounds and drives an
-**Apple Watch app (Swift)**:
+- **Where** is the sound? Compare how loud each box hears it. Your body blocks sound, so the
+  box facing the sound hears it loudest.
+- **What** is the sound? YAMNet + our trained head, run on audio from the loudest box only.
+- **Show it:** an arrow pointing at the sound, its name, how loud, and a buzz if it's urgent.
 
-- **Watch:** a bird's-eye view of the wearer with an arrow pointing at each sound, its label,
-  loudness, and a haptic buzz for urgent sounds.
-- **iPhone:** the comprehensive app. Live view, filters, settings, history, device pairing.
+Example: a baby cries behind the wearer. The BACK box hears it loudest, the phone shows a
+"baby cry" arrow pointing behind, and the phone buzzes.
 
-Example: a baby cries behind the wearer. The watch buzzes and shows a "baby cry" arrow pointing
-down (behind) from the wearer icon.
+**Phone first. The Apple Watch app comes later** as a second screen on the wrist; the phone
+stays the brain.
 
-```
-┌──────────────────────┐  BLE: direction  ┌──────────────────────┐  WatchConnectivity  ┌───────────────────┐
-│ Glasses (3D printed) │  + mono audio    │ iPhone app (Swift)   │  + notifications    │ Apple Watch app   │
-│ 4 mics · ESP32-S3    │ ───────────────▶ │ classify, filter,    │ ──────────────────▶ │ bird's-eye view,  │
-│ GCC-PHAT direction   │                  │ track sounds         │                     │ arrows, haptics   │
-└──────────────────────┘                  └──────────┬───────────┘                     └───────────────────┘
-                                                     │ async, small (not the live path)
-                                                     ▼
-                                   Firebase (free Spark plan):
-                                   Anonymous Auth · Firestore (settings, history)
-```
+![Data flow](docs/data-flow.png)
 
-**Inference runs on the iPhone, not in the cloud.** Live alerts must land in about 0.3 s and keep
-working with no signal. Firebase stores settings and history. The reasoning is in
-`docs/team-plan.md`.
+## The rules
 
-**$0 for software and services.** This is a demo: free Apple ID in Xcode (no paid Developer
-Program) and Firebase Spark only (never Blaze). That rules out push, Sign in with Apple,
-TestFlight, Cloud Storage and Cloud Functions; the workaround for each is in
-[`docs/team-plan.md`](docs/team-plan.md#free-tier-limits). Hardware parts (~$40) are the only
-cost.
+- **Audio never leaves the phone.** Input, preprocessing, inference and the screens all run
+  inside the iPhone app. Alerts land in about 0.3 s and keep working with no signal.
+- **Firebase is the only backend.** It stores settings and history. There is no server to
+  write or host.
+- **No training needed.** The model is already trained (`ml/models/`). Retrain later only if
+  accuracy through the boxes' mics is bad, or to add sounds.
+- **$0 for software and services.** Free Apple ID in Xcode (no paid Developer Program) and
+  Firebase Spark only (never Blaze). That rules out push, Sign in with Apple, TestFlight, Cloud
+  Storage and Cloud Functions; the workaround for each is in
+  [`docs/team-plan.md`](docs/team-plan.md#free-tier-limits). Hardware (~$75 for 4 boxes) is the
+  only cost.
 
-## What the system derives from audio
+## What the system works out from audio
 
 | Attribute | Meaning | How | Where |
 |---|---|---|---|
-| **Direction** | where the sound is; 0° ahead, clockwise, 180° behind | Time difference of arrival across the mics (GCC-PHAT), Python version in `pi/` and `demo/` | ESP32 |
-| **Type** | what the sound is (siren, baby cry, knock, speech…) | Apple's built-in sound classifier or our YAMNet + trained head (13 classes, `ml/`). Bake-off in week 1 | iPhone |
-| **Loudness** | how loud it is | Level from the mic signal, calibrated later | ESP32 + iPhone |
+| **Direction** | where the sound is; 0° ahead, clockwise, 180° behind | Loudness above each box's quiet level, then `atan2(RIGHT − LEFT, FRONT − BACK)` ([details](docs/body-boxes-plan.md)) | iPhone |
+| **Type** | what the sound is (siren, baby cry, knock, speech…) | YAMNet + our trained head (13 classes, `ml/`) on the loudest box's audio | iPhone |
+| **Loudness** | how loud it is | Peak level from the loudest box | Box measures, iPhone shows |
 
 ## Sound filters
 
@@ -83,62 +79,59 @@ technical one.
 
 ## Stack
 
-| Layer | Choice |
+| Part | Choice |
 |---|---|
-| Glasses | Seeed XIAO ESP32-S3, 4× INMP441 I2S mics, LiPo; C++ on PlatformIO, `esp-dsp`, NimBLE |
-| Link | BLE notifications, 50 Hz, angle + level + IMA ADPCM mono audio (packet in `docs/team-plan.md`) |
-| iPhone | SwiftUI, CoreBluetooth (background mode), SoundAnalysis or TensorFlowLiteSwift, local notifications |
-| Watch | SwiftUI on watchOS, WatchConnectivity, WatchKit haptics |
-| Backend | Firebase Spark (free): Anonymous Auth, Firestore, Crashlytics |
+| Sound boxes (×4) | Seeed XIAO ESP32-C3, INMP441 I2S mic, LiPo; C++ (Arduino on PlatformIO), NimBLE |
+| Link | Bluetooth LE, each box straight to the iPhone: loudness 10×/s from every box, IMA ADPCM audio from the loudest box only |
+| iPhone app | Swift, SwiftUI, CoreBluetooth (background mode), Accelerate, TensorFlowLiteSwift, local notifications |
+| Model | YAMNet + our trained head, `.tflite` files from `ml/models/`, bundled in the app |
+| Backend | Firebase Spark (free): Anonymous Auth, Firestore |
+| Watch (later) | SwiftUI on watchOS, WatchConnectivity, haptics |
 | Distribution | Install from Xcode with a free Apple ID; re-install every 7 days |
-| Training | Python, `ml/` (unchanged) |
+| Retraining (optional) | Python, `ml/` |
 
 ## Open decisions
 
 Owners and deadlines are in `docs/team-plan.md`.
 
-1. Classifier: Apple built-in vs our YAMNet head
-2. Final BLE packet format
-3. Hardware money: Convergent budget or borrowed parts
-4. How loudness is shown on the watch
-5. Which sound classes go in each filter, and which are urgent
-6. Whose iPhone + watch is the demo device
-7. Demo date
+1. Hardware money: Convergent budget or borrowed parts
+2. How loudness is shown in the app
+3. Which sound classes go in each filter, and which are urgent
+4. Whose iPhone is the demo device
+5. Demo date
 
 ## Repo layout
 
 | Folder | What's in it |
 |---|---|
-| `demo/` | **Try it now on your laptop**: mic in, live direction ring in the browser, no hardware. See `demo/README.md`. |
-| `ml/` | Training pipeline for the sound classifier. Already trained; re-run to add classes or your own recordings. See `ml/README.md`. |
-| `pi/` | Earlier hat-mounted Raspberry Pi prototype. Its `gcc_phat` and classifier code are what the firmware and iPhone app port. See `pi/README.md`. |
-| `docs/` | `team-plan.md` (lanes, contracts, timeline), `hardware-bom.md`, `networking.md`, mockups, project PDF, and `rendering/index.html`: an interactive 3D concept of the glasses frame. |
-| `firmware/`, `ios/`, `firebase/` | To be created in week 1; see the repo layout in `docs/team-plan.md`. |
+| `demo/` | **Try it now on your laptop**: mic in, live sound labels in the browser, no hardware. See `demo/README.md`. |
+| `ml/` | The trained sound classifier and its training pipeline. Re-run only to add classes or your own recordings. See `ml/README.md`. |
+| `pi/` | Earlier hat-mounted Raspberry Pi prototype. Its classifier code (thresholds, persistence) is what the iPhone app ports. |
+| `docs/` | `architecture.md`, `body-boxes-plan.md`, `team-plan.md`, `hardware-bom.md`, the data-flow diagram, older mockups and the project PDF |
+| `firmware/`, `ios/`, `firebase/` | To be created; see the repo layout in `docs/team-plan.md`. |
 
 ## Status
 
-- [x] Direction of arrival from a 4-mic array (GCC-PHAT, Python)
 - [x] Sound classifier: 13 classes, multi-label, 93.8% on held-out data, noise/overlap augmentation
 - [x] Laptop live demo (`demo/`)
-- [x] Team plan: lanes, contracts, timeline (`docs/team-plan.md`)
-- [ ] Prototype 4-mic capture on the ESP32-S3 (breadboard, before printing anything)
-- [ ] GCC-PHAT on the ESP32, BLE link to the iPhone
-- [ ] Classifier bake-off and `Detection` module on the iPhone
-- [ ] Watch app: bird's-eye view, arrows, haptics
-- [ ] iPhone app: live view, filters, settings, history
+- [x] Architecture and team plan (`docs/architecture.md`, `docs/team-plan.md`)
+- [ ] Body-shadow test: 2 boxes, chest and back, the box facing a clap reads ≥ 6 dB louder
+- [ ] iPhone app on fake sounds: live view, filters, settings
+- [ ] YAMNet + head running inside the iPhone app on a `.wav` file
+- [ ] Preprocessing on the phone: quiet level, direction, loudest-box switching
 - [ ] Firebase: auth, settings sync, history
-- [ ] Design and 3D-print the glasses frame
-- [ ] Test on real hardware and calibrate loudness
-- [ ] Record our own clips (doorbell, dryer, smoke alarm, baby cry) and retrain
+- [ ] 4 boxes over Bluetooth into the phone
+- [ ] Cases with clips, battery-life test
+- [ ] Watch app (later)
 
 ## Docs that need reconciling
 
-Written before the 2026-10-19 change. Treat these as reference until updated:
+Written before the switch to body-worn boxes (2026-10-22). Treat these as history:
 
-- `docs/networking.md` recommends Wi-Fi + UDP and Flutter. Now BLE (iOS background) and
-  native Swift, with direction computed on the ESP32. Its latency numbers still apply.
-- `docs/hardware-bom.md` lists the XIAO **Sense** (camera) and LED indicators. Neither is
-  needed now: plain XIAO ESP32-S3, no LEDs.
-- `docs/rendering/index.html` models a bridge camera.
+- `docs/networking.md`: Wi-Fi + UDP, Flutter, 4 raw channels from one board. Now BLE from 4
+  boxes, native Swift. Its classifier latency measurements still apply.
+- `docs/rendering/index.html`: 3D model of the old glasses frame.
 - `docs/mockup.svg`, `clip_mockup.svg`, `pov_mockup.svg`, `pi/` and the project PDF describe
-  older directions (LED ring, phone video overlay).
+  older directions (glasses, LED ring, phone video overlay).
+- `demo/` and `pi/` find direction with GCC-PHAT timing across a fixed mic array. The boxes use
+  loudness instead; only their classifier code carries over.
