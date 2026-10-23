@@ -74,7 +74,7 @@ for 4 copies of the same sound.
 | Avery | Person B | Person C |
 |---|---|---|
 | 1. ADPCM test in the eval harness (first 2 days). Its result decides the codec in the BLE contract. | 1. IMA ADPCM encoder (C++) and decoder (Swift) that match Avery's Python test vectors. | 1. Xcode project + `SoundRingKit` package, no screens. Per-person bundle ID `.xcconfig`. `swift test` runs. |
-| 2. Freeze `Sources/Models/` with B and C by Sat Oct 25. | 2. PlatformIO firmware for the XIAO ESP32-S3: I2S read, peak dB per 100 ms, NimBLE service with the 3 characteristics. Builds; the DSP parts pass tests in PlatformIO's native environment. | 2. `WavFileBoxSource`: plays a `.wav` as `SoundFrame`s and makes 4 `BoxLevel` streams from a scripted source angle with a simple body-shadow model (the far side up to ~10 dB quieter until real numbers arrive). |
+| 2. Freeze `Sources/Models/` with B and C by Sun Oct 25. | 2. PlatformIO firmware for the XIAO ESP32-S3: I2S read, peak dB per 100 ms, NimBLE service with the 3 characteristics. Builds; the DSP parts pass tests in PlatformIO's native environment. | 2. `WavFileBoxSource`: plays a `.wav` as `SoundFrame`s and makes 4 `BoxLevel` streams from a scripted source angle with a simple body-shadow model (the far side up to ~10 dB quieter until real numbers arrive). |
 | 3. Export expected outputs from Python: per-clip probabilities and detector decisions as a JSON fixture for the Swift tests. | 3. Fake box on a Mac: a BLE peripheral advertising `SoundBox-FRONT` that streams `level` and `audio` from a `.wav`, exactly per the contract. | 3. Direction in Swift per `docs/body-boxes-plan.md`: quiet level, peak hold, tug of war, fallback, loudest-box switching, quiet level frozen during safety sounds. Unit tests include the plan's worked example (≈30°). |
 | 4. Classifier in Swift: TFLite load, ring buffer, gate, thresholds, persistence, veto, label margin. Matches the fixture. | 4. `Input` module: CoreBluetooth on a real iPhone connects to the fake box and emits `BoxLevel`s and `SoundFrame`s. | Avery reviews the direction code and owns it from week 2; C moves to screens. |
 
@@ -83,6 +83,8 @@ classifier → `SoundEvent` with the expected label and the angle on the right s
 reaches an iPhone over BLE; the firmware builds for the XIAO ESP32-S3.
 
 **Deferred to week 2:** screens, Firebase, notifications.
+
+**Detailed tasks with files, due dates and done-when checks:** [`docs/week1-tasks.md`](week1-tasks.md).
 
 All of Lanes 1 (phone side), 2, 3 and 4 is code **inside the same iPhone app**. See
 `docs/architecture.md` for where each part lives.
