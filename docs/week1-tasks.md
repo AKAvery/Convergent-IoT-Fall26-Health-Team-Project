@@ -8,6 +8,21 @@ Parts arrive around Oct 29. Until then: no hardware, no screens. Three people: *
 fake box on a Mac reaches an iPhone over Bluetooth, and the firmware builds for the XIAO
 ESP32-S3.
 
+## By area
+
+The team's planning labels, mapped to this week's tasks. Every task still has one owner; this
+table is for checking that no area is forgotten.
+
+| Area | This week | Status |
+|---|---|---|
+| **Hardware: 4 boxes that hear and send** | B2 firmware that builds | Software ready by Oct 29. Assembly and soldering start when parts arrive. |
+| **Backend** | A5, C3, A6: the detection pipeline inside the iPhone app | There is no server. "Backend" is code on the phone, plus Firebase for settings and history only (week 2). |
+| **Audio processing** | On the box: B2 (peak level), B1 (ADPCM encode). On the phone: B1 (decode), A5 (ring buffer, gate) | Covered |
+| **What's fed into YAMNet** | A5, checked by A2 | Covered: the loudest box's audio, decoded, 16 kHz mono, the last 0.975 s, peak-normalised, every 0.1 s, skipped below −70 dBFS. A2 checks that compression doesn't hurt accuracy. A6 handles the seam when the streaming box changes. |
+| **Direction and loudness** | C3, built on C2 | Covered. Loudness = dB above the loudest box's quiet level. How the app *shows* loudness is an open UI decision for week 3. |
+| **Networking: boxes ↔ phone ↔ cloud** | A3 (BLE contract), B3 (fake box), B4 (iPhone receiver) | Boxes → phone covered with one fake box. Four connections at once needs real boxes (week 2). Phone → Firebase is week 2. |
+| **Calibration** | C2 uses a placeholder body-shadow value | Mostly week 2, with hardware: see "Calibration (week 2)" at the bottom. No calibration is asked of the user. |
+
 ## Calendar
 
 | Day | Avery | B | C |
@@ -79,8 +94,13 @@ ESP32-S3.
 ### A6. End-to-end test · ~3 h, with C · due Thu 29
 - `DetectionPipeline`: `BoxSource` → direction + box switching (C3) + `Detector` (A5) →
   `SoundEventSource`.
+- **Box-switch seam:** when the streaming box changes, the 1 s buffer holds audio from two boxes
+  at different levels. Decide and test one rule. Either scale the new box's audio by the level
+  difference so the buffer joins smoothly, or keep reporting the current event and let the
+  buffer refill before a new label can fire.
 - **Done when** a siren `.wav` at 135° through `WavFileBoxSource` yields a `siren` event with
-  an azimuth between 90° and 180° within 1 s of simulated time.
+  an azimuth between 90° and 180° within 1 s of simulated time, and a source that rotates past
+  a box boundary keeps one event instead of flickering into two.
 
 ---
 
@@ -175,3 +195,15 @@ ESP32-S3.
 ## Not this week
 Screens, Firebase, notifications and the watch move to week 2. Background BLE mode waits for B4
 to work in the foreground.
+
+## Calibration (week 2, needs hardware)
+
+None of this is asked of the user. It's what the team measures once and writes into code.
+
+| Check | How | Feeds |
+|---|---|---|
+| Gain match | Put all 4 boxes side by side, play the same sound, compare peak levels. Any box more than 2 dB off gets a fixed trim in its firmware. | B2 gain constant |
+| Body shadow | The 2-box test from `docs/body-boxes-plan.md`, with a clap **and** a low sound such as a car horn | Replaces C2's placeholder `S` = 10 dB |
+| Direction accuracy | Wearer stands still; play a sound from 8 positions around them; record the angle the phone shows | Tunes C3's thresholds |
+| Quiet level | 5 minutes in a quiet room and in a noisy one; check the quiet level settles and doesn't trigger | C3's 10 s window |
+| Clipping | A car horn clip at 1 m from a phone speaker must not set the clip flag | B2 gain constant |
