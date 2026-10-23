@@ -40,7 +40,7 @@ don't change.
 |---|---|---|
 | **Avery Allen** | 2. Detection, plus contract owner | Wrote the classifier, `demo/detector.py` and the eval harness, so the port and every accuracy question land with the person who can check them against Python. Owns `Sources/Models/` and runs the weekly sync. |
 | **Person B** | 1. Boxes & Input, both ends | Firmware and the iPhone BLE code are two halves of one contract. One owner means no mismatch between what the box sends and what the phone expects. Needs a Mac, a real iPhone and the boards. |
-| **Person C** | 3. Cloud & Alerts + 4. iPhone app | Everything the user touches: screens, haptics, notifications, settings and history. Lane 3 is light on the Spark plan and its outputs (settings, history, alerts) are UI anyway. Can build entirely in the Simulator on mocks until week 4. |
+| **Person C** | 3. Cloud & Alerts + 4. iPhone app, plus direction from Lane 2 | Everything the user touches: screens, haptics, notifications, settings and history. Lane 3 is light on the Spark plan and its outputs (settings, history, alerts) are UI anyway. Also owns the direction code and model loading, which C writes in week 1. |
 
 Moved between lanes to balance the load:
 
@@ -73,10 +73,10 @@ for 4 copies of the same sound.
 
 | Avery | Person B | Person C |
 |---|---|---|
-| 1. ADPCM test in the eval harness (first 2 days). Its result decides the codec in the BLE contract. | 1. IMA ADPCM encoder (C++) and decoder (Swift) that match Avery's Python test vectors. | 1. Xcode project + `SoundRingKit` package, no screens. Per-person bundle ID `.xcconfig`. `swift test` runs. |
-| 2. Freeze `Sources/Models/` with B and C by Sun Oct 25. | 2. PlatformIO firmware for the XIAO ESP32-S3: I2S read, peak dB per 100 ms, NimBLE service with the 3 characteristics. Builds; the DSP parts pass tests in PlatformIO's native environment. | 2. `WavFileBoxSource`: plays a `.wav` as `SoundFrame`s and makes 4 `BoxLevel` streams from a scripted source angle with a simple body-shadow model (the far side up to ~10 dB quieter until real numbers arrive). |
-| 3. Export expected outputs from Python: per-clip probabilities and detector decisions as a JSON fixture for the Swift tests. | 3. Fake box on a Mac: a BLE peripheral advertising `SoundBox-FRONT` that streams `level` and `audio` from a `.wav`, exactly per the contract. | 3. Direction in Swift per `docs/body-boxes-plan.md`: quiet level, peak hold, tug of war, fallback, loudest-box switching, quiet level frozen during safety sounds. Unit tests include the plan's worked example (≈30°). |
-| 4. Classifier in Swift: TFLite load, ring buffer, gate, thresholds, persistence, veto, label margin. Matches the fixture. | 4. `Input` module: CoreBluetooth on a real iPhone connects to the fake box and emits `BoxLevel`s and `SoundFrame`s. | Avery reviews the direction code and owns it from week 2; C moves to screens. |
+| ADPCM in Python + test files; ADPCM accuracy test (decides the codec) | Minimal loudness sketch, ready to flash on arrival | Xcode project + `SoundRingKit`; settle TensorFlow Lite packaging |
+| Two-phone body-shadow test | Fake box on a Mac | Four-box simulator |
+| Freeze `Sources/Models/` with B and C by Sun Oct 25 | ADPCM encoder (C++) + decoder (Swift) | Model loading in Swift, matching Python |
+| Python fixtures; detector decision rules in Swift | Stretch: full BLE firmware, iPhone `Input` module | Direction + box switching in Swift (C owns it for good) |
 
 **Done when:** contracts are merged; `swift test` passes `.wav` → simulated boxes → direction +
 classifier → `SoundEvent` with the expected label and the angle on the right side; the fake box

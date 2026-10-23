@@ -8,6 +8,10 @@ Parts arrive around Oct 29. Until then: no hardware, no screens. Three people: *
 fake box on a Mac reaches an iPhone over Bluetooth, and the firmware builds for the XIAO
 ESP32-S3.
 
+**Must** = needed this week. **Stretch** = can slide to week 2 without blocking anyone.
+Revised 2026-10-22: model loading moved to C, C keeps direction for good, B's first firmware is
+a minimal loudness sketch, and a two-phone body-shadow test runs before hardware arrives.
+
 ## By area
 
 The team's planning labels, mapped to this week's tasks. Every task still has one owner; this
@@ -18,21 +22,21 @@ table is for checking that no area is forgotten.
 | **Hardware: 4 boxes that hear and send** | B2 firmware that builds | Software ready by Oct 29. Assembly and soldering start when parts arrive. |
 | **Backend** | A5, C3, A6: the detection pipeline inside the iPhone app | There is no server. "Backend" is code on the phone, plus Firebase for settings and history only (week 2). |
 | **Audio processing** | On the box: B2 (peak level), B1 (ADPCM encode). On the phone: B1 (decode), A5 (ring buffer, gate) | Covered |
-| **What's fed into YAMNet** | A5, checked by A2 | Covered: the loudest box's audio, decoded, 16 kHz mono, the last 0.975 s, peak-normalised, every 0.1 s, skipped below −70 dBFS. A2 checks that compression doesn't hurt accuracy. A6 handles the seam when the streaming box changes. |
+| **What's fed into YAMNet** | C4 (model loading), A5 (decision rules), checked by A2 | Covered: the loudest box's audio, decoded, 16 kHz mono, the last 0.975 s, peak-normalised, every 0.1 s, skipped below −70 dBFS. A2 checks that compression doesn't hurt accuracy. A6 handles the seam when the streaming box changes. |
 | **Direction and loudness** | C3, built on C2 | Covered. Loudness = dB above the loudest box's quiet level. How the app *shows* loudness is an open UI decision for week 3. |
 | **Networking: boxes ↔ phone ↔ cloud** | A3 (BLE contract), B3 (fake box), B4 (iPhone receiver) | Boxes → phone covered with one fake box. Four connections at once needs real boxes (week 2). Phone → Firebase is week 2. |
-| **Calibration** | C2 uses a placeholder body-shadow value | Mostly week 2, with hardware: see "Calibration (week 2)" at the bottom. No calibration is asked of the user. |
+| **Calibration** | A0 two-phone body-shadow test; C2 uses a placeholder value | Mostly week 2, with hardware: see "Calibration (week 2)" at the bottom. No calibration is asked of the user. |
 
 ## Calendar
 
 | Day | Avery | B | C |
 |---|---|---|---|
-| Thu 22 – Fri 23 | A1 ADPCM in Python + test vectors | B2 firmware project starts; B3 fake box starts | **C1 repo skeleton (everyone waits on this)** |
-| Sat 24 | A2 ADPCM accuracy result | B3 | C2 simulator |
+| Thu 22 – Fri 23 | A1 ADPCM in Python + test files | B0 loudness sketch; B3 fake box starts | **C1 repo skeleton + TFLite packaging (everyone waits on this)** |
+| Sat 24 | A0 two-phone test; A2 ADPCM result | B0 done; B3 | C2 simulator |
 | Sun 25 | **A3 contracts merged** (B, C approve) | review A3 | review A3 |
-| Mon 26 | A4 Python fixtures | B1 ADPCM codecs; B3 done | C2 done |
-| Tue 27 – Wed 28 | A5 Swift classifier | B2 done; B4 iPhone input | C3 direction |
-| Thu 29 | **A6 end-to-end test with C** | B4 done | C3 done; A6 with Avery |
+| Mon 26 | A4 Python fixtures | B1 ADPCM codecs; B3 done | C2 done; C4 model loading |
+| Tue 27 – Wed 28 | A5 decision rules in Swift | B2 full firmware (stretch) | C4 done; C3 direction |
+| Thu 29 | A6 end-to-end with C (stretch) | B4 iPhone receiver (stretch) | C3 done; A6 with Avery |
 
 ## Shared conventions (decide once, use everywhere)
 
@@ -50,13 +54,22 @@ table is for checking that no area is forgotten.
 
 ## Avery: detection and contracts
 
-### A1. IMA ADPCM in Python + test vectors · ~2 h · due Fri 23
+### A0. Two-phone body-shadow test · ~1 h · due Sat 24 · Must
+- Two phones recording at the same time, one on the chest and one on the back.
+- Clap, then play a low sound (a car horn clip from a third phone), first from the front, then
+  from behind, about 2 m away.
+- Compare peak levels in Python.
+- Phone auto-gain shrinks the gap, so a ≥ 6 dB difference is a real pass. A fail is
+  inconclusive; retest with the boxes.
+- **Done when** the result for both sounds is posted to the team.
+
+### A1. IMA ADPCM in Python + test vectors · ~2 h · due Fri 23 · Must
 - `ml/adpcm.py`: `encode(int16[]) -> bytes` and `decode(bytes, state) -> int16[]`, about 60 lines.
 - Write `fixtures/adpcm/`: `input.wav` (3 s, 16 kHz mono: a sweep, a clap and silence),
   `packets.bin` (169-byte packets exactly as in the BLE contract) and `decoded.wav`.
 - **Done when** decode(encode(x)) stays within ADPCM's normal error, and B has the files.
 
-### A2. Does the classifier survive ADPCM? · ~3 h · due Sat 24
+### A2. Does the classifier survive ADPCM? · ~3 h · due Sat 24 · Must
 - Add `--codec adpcm` to `ml/eval_pipeline.py`. In `stream_for()`, run each clip through
   encode → decode before it reaches the detector.
 - Run default against default + ADPCM. Compare caught and wrong-label rates per class at
@@ -66,7 +79,7 @@ table is for checking that no area is forgotten.
   before A3 freezes the contract.
 - **Done when** a short result table is posted to the team and saved as `ml/work/eval_adpcm.md`.
 
-### A3. Contracts in `Sources/Models/` · ~2 h · due **Sun 25** · needs C1
+### A3. Contracts in `Sources/Models/` · ~2 h · due **Sun 25** · needs C1 · Must
 - Swift types from `docs/team-plan.md`: `BoxPosition`, `BoxLevel`, `SoundFrame`, `BoxSource`,
   `SoundLabel`, `FilterCategory`, `SoundEvent`, `SoundEventSource`.
 - Add BLE UUIDs (B picks them), the codec from A2, and the priority table from `ml/config.py`.
@@ -74,24 +87,22 @@ table is for checking that no area is forgotten.
   low sounds less, so direction may want it. It's cheap now and hard after the freeze.
 - **Done when** the PR is merged with B and C approving.
 
-### A4. Expected outputs from Python · ~2 h · due Mon 26
+### A4. Expected outputs from Python · ~2 h · due Mon 26 · Must
 - `ml/export_fixtures.py`: run `demo/detector.py` on 30 test clips (2 per class plus 4
   "other" or background) at −20 dBFS.
 - One JSON per clip in `fixtures/detector/`. For every 0.1 s hop, store `level_db`, `gated`,
   the 13 probabilities, `hits` and the big `label`.
 - **Done when** the fixtures are committed and the Python detector reproduces them exactly.
 
-### A5. Classifier in Swift · ~8–10 h · due Wed 28 · needs A4, C1
-- `Sources/Detection/Classifier.swift`: load both `.tflite` files, peak-normalise, run YAMNet
-  then the head.
+### A5. Detector decision rules in Swift · ~6 h · due Wed 28 · needs A4, C4 · Must
+- Builds on C4's `Classifier`, which turns audio into 13 probabilities.
 - `Sources/Detection/Detector.swift`: 1 s ring buffer, 0.1 s hop, −70 dBFS gate on the loudest
   100 ms sub-window, thresholds from `thresholds.json`, persist 5, "other" veto 0.15, label
   margin 0.10 with safety classes exempt, priority × confidence × loudness score.
 - `Tests/DetectionTests/DetectorFixtureTests.swift` replays every fixture.
-- **Done when** probabilities match within 1e-4 and every decision (gated, hits, label) matches
-  exactly on all 30 clips.
+- **Done when** every decision (gated, hits, label) matches the fixtures exactly on all 30 clips.
 
-### A6. End-to-end test · ~3 h, with C · due Thu 29
+### A6. End-to-end test · ~3 h, with C · due Thu 29 · Stretch
 - `DetectionPipeline`: `BoxSource` → direction + box switching (C3) + `Detector` (A5) →
   `SoundEventSource`.
 - **Box-switch seam:** when the streaming box changes, the 1 s buffer holds audio from two boxes
@@ -106,12 +117,19 @@ table is for checking that no area is forgotten.
 
 ## B: boxes and input, no hardware yet
 
-### B1. ADPCM in C++ and Swift · ~4 h · due Mon 26 · needs A1
+### B0. Minimal loudness sketch · ~1–2 h · due Sat 24 · Must
+- `firmware/level_sketch/`: read one INMP441 on the XIAO ESP32-S3 and print peak dBFS every
+  100 ms over USB serial. No Bluetooth.
+- This is all the body-shadow test and the calibration checks need, so it must be ready to flash
+  the day parts arrive.
+- **Done when** it builds for `seeed_xiao_esp32s3`.
+
+### B1. ADPCM in C++ and Swift · ~4 h · due Mon 26 · needs A1 · Must
 - `firmware/lib/adpcm/adpcm.h/.cpp` (encoder) and `ios/Packages/SoundRingKit/Sources/Input/ADPCM.swift` (decoder).
 - **Done when** the C++ encoder reproduces `fixtures/adpcm/packets.bin` byte for byte, and the
   Swift decoder reproduces `decoded.wav` sample for sample.
 
-### B2. Firmware that builds · ~6 h · due Wed 28
+### B2. Full Bluetooth firmware · ~6 h · due Wed 28 · Stretch
 - `firmware/platformio.ini` with two environments: `seeed_xiao_esp32s3` (Arduino) and `native`
   (for tests on your laptop).
 - `src/main.cpp`:
@@ -124,7 +142,7 @@ table is for checking that no area is forgotten.
 - `test/test_level/`: a −20 dBFS sine reads −20.0 ± 0.1 dB; a full-scale square sets the clip flag.
 - **Done when** `pio run -e seeed_xiao_esp32s3` builds and `pio test -e native` passes.
 
-### B3. Fake box on a Mac · ~4 h · due Mon 26
+### B3. Fake box on a Mac · ~4 h · due Mon 26 · Must
 - `tools/fake_box/`: a small macOS command-line tool (Swift, `CBPeripheralManager`) or Python
   with the `bless` library.
 - Advertise `SoundBox-FRONT` with the exact contract service. Read a `.wav`, send `level` at
@@ -132,7 +150,7 @@ table is for checking that no area is forgotten.
 - **Done when** LightBlue on an iPhone sees it, subscribes to `level`, and writing 1 to
   `control` starts `audio`.
 
-### B4. iPhone `Input` module · ~6–8 h · due Thu 29 · needs A3, B1, B3, C1
+### B4. iPhone `Input` module · ~6–8 h · due Thu 29 · needs A3, B1, B3, C1 · Stretch
 - `Sources/Input/BLEBoxSource.swift`: scan by service UUID, connect, subscribe, parse,
   decode, then emit `BoxLevel` and `SoundFrame`. `streamAudio(from:)` writes `control`.
   Reconnect on drop; count sequence gaps per box.
@@ -144,7 +162,7 @@ table is for checking that no area is forgotten.
 
 ## C: app skeleton, simulator and direction (no screens this week)
 
-### C1. Repo skeleton · ~3–5 h · due **Fri 23** (everyone waits on this)
+### C1. Repo skeleton · ~3–5 h · due **Fri 23** · Must (everyone waits on this)
 - `ios/SoundRing.xcodeproj`: app target with one placeholder view. No UI work.
 - `ios/Packages/SoundRingKit`: targets `Models`, `Input`, `Detection` and `Cloud` (empty),
   plus test targets.
@@ -154,11 +172,11 @@ table is for checking that no area is forgotten.
   historically shipped through CocoaPods, not Swift Package Manager. If there's no package
   option, decide today whether Detection uses CocoaPods or lives in the app target, and tell
   Avery. Tests that load TFLite may need to run on the iOS Simulator through `xcodebuild`
-  rather than `swift test`.
+  rather than `swift test`. C owns this decision because C4 depends on it.
 - **Done when** a fresh clone plus a filled-in `Local.xcconfig` builds for the Simulator and a
   device, and an empty test runs.
 
-### C2. Four-box simulator, `WavFileBoxSource` · ~4 h · due Mon 26 · needs A3
+### C2. Four-box simulator, `WavFileBoxSource` · ~4 h · due Mon 26 · needs A3 · Must
 - `Sources/Input/WavFileBoxSource.swift`, implementing `BoxSource`.
 - Reads a 16 kHz mono `.wav` and takes a scripted source angle, fixed or rotating.
 - **Levels:** for each box, every 100 ms, the clip's peak dB minus a body-shadow loss
@@ -170,7 +188,7 @@ table is for checking that no area is forgotten.
 - Real-time mode for demos, fast mode for tests.
 - **Done when** a test at 90° shows RIGHT loudest and LEFT about 10 dB quieter.
 
-### C3. Direction and box switching in Swift · ~6 h · due Thu 29 · needs C2
+### C3. Direction and box switching in Swift · ~6 h · due Thu 29 · needs C2 · Must
 - `Sources/Detection/Direction.swift` and `BoxSwitcher.swift`, per `docs/body-boxes-plan.md`:
   - **Quiet level per box:** the lowest 100 ms peak over the last 10 s. Freeze it while a safety
     sound is active, through a `setSafetyActive(_:)` hook that A6 wires to the detector.
@@ -187,8 +205,15 @@ table is for checking that no area is forgotten.
   - a 30 s steady siren with the freeze on stays above 0 loudness the whole time; with it off,
     it fades
   - `WavFileBoxSource` at 135° → angle between 90° and 180°
-- **Done when** all of these pass. Avery reviews and owns the code from week 2, and C moves to
-  screens.
+- **Done when** all of these pass. C owns this code for good, including tuning it after the
+  week-2 calibration checks. Avery reviews it.
+
+### C4. Model loading in Swift · ~3 h · due Tue 27 · needs C1, A4 · Must
+- `Sources/Detection/Classifier.swift`: load `yamnet_embedding_metadata.tflite` and
+  `sound_head.tflite`, peak-normalise the last 0.975 s, run YAMNet, then the head, and return
+  13 probabilities.
+- **Done when** the probabilities match Avery's fixtures within 1e-4 on all 30 clips. Avery's
+  decision rules (A5) build on top.
 
 ---
 
