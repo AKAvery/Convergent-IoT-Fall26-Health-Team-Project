@@ -48,8 +48,8 @@ stays the brain.
   inside the iPhone app. Alerts land in about 0.3 s and keep working with no signal.
 - **Firebase is the only backend.** It stores settings and history. There is no server to
   write or host.
-- **No training needed.** The model is already trained (`ml/models/`). Retrain later only if
-  accuracy through the boxes' mics is bad, or to add sounds.
+- **No training, ever.** The model is already trained (`ml/models/`) and we won't retrain it.
+  If accuracy through the boxes' mics is bad, we tune thresholds and preprocessing instead.
 - **$0 for software and services.** Free Apple ID in Xcode (no paid Developer Program) and
   Firebase Spark only (never Blaze). That rules out push, Sign in with Apple, TestFlight, Cloud
   Storage and Cloud Functions; the workaround for each is in
@@ -88,7 +88,6 @@ technical one.
 | Backend | Firebase Spark (free): Anonymous Auth, Firestore |
 | Watch (later) | SwiftUI on watchOS, WatchConnectivity, haptics |
 | Distribution | Install from Xcode with a free Apple ID; re-install every 7 days |
-| Retraining (optional) | Python, `ml/` |
 
 ## Open decisions
 
@@ -105,7 +104,7 @@ Owners and deadlines are in `docs/team-plan.md`.
 | Folder | What's in it |
 |---|---|
 | `demo/` | **Try it now on your laptop**: mic in, live sound labels in the browser, no hardware. See `demo/README.md`. |
-| `ml/` | The trained sound classifier and its training pipeline. Re-run only to add classes or your own recordings. See `ml/README.md`. |
+| `ml/` | The trained sound classifier and the training code that built it (we won't retrain). See `ml/README.md`. |
 | `pi/` | Earlier hat-mounted Raspberry Pi prototype. Its classifier code (thresholds, persistence) is what the iPhone app ports. |
 | `docs/` | `architecture.md`, `body-boxes-plan.md`, `team-plan.md`, `hardware-bom.md`, the data-flow diagram, older mockups and the project PDF |
 | `firmware/`, `ios/`, `firebase/` | To be created; see the repo layout in `docs/team-plan.md`. |
