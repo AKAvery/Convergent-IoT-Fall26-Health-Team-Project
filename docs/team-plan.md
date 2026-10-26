@@ -1,6 +1,6 @@
 # Team plan: who builds what
 
-Four tech members, four lanes. Each lane has one owner, a clear boundary, and a contract it
+Three software members, four lanes (see the three-person split below). Each lane has one owner, a clear boundary, and a contract it
 hands to the next lane. Everyone builds against **mocks** of the other lanes in weeks 2–3, so
 nobody waits on anybody. Written 2026-10-19, updated 2026-10-22 for the body-worn boxes and
 phone-first priority. The split is a suggestion: swap names freely, keep the boundaries.
@@ -26,10 +26,65 @@ phone-first priority. The split is a suggestion: swap names freely, keep the bou
 
 | Lane | Owner | One-line job | Hands off |
 |---|---|---|---|
-| 1. Boxes & Input | _name_ | Get loudness + audio from 4 boxes onto the iPhone | `BoxLevel` + `SoundFrame` streams |
-| 2. Detection | _name_ | Turn that into "siren, 90° right, loud" | `SoundEvent` stream |
-| 3. Cloud & Alerts | _name_ | Firebase (free tier), notifications, later the watch link | Settings, history |
-| 4. iPhone app (UI) | _name_ | Everything the user sees and touches | The product |
+| 1. Boxes & Input | Person B: _name_ | Get loudness + audio from 4 boxes onto the iPhone | `BoxLevel` + `SoundFrame` streams |
+| 2. Detection | Avery Allen | Turn that into "siren, 90° right, loud" | `SoundEvent` stream |
+| 3. Cloud & Alerts | Person C: _name_ | Firebase (free tier), notifications, later the watch link | Settings, history |
+| 4. iPhone app (UI) | Person C: _name_ | Everything the user sees and touches | The product |
+
+### Three-person split (2026-10-22)
+
+Software is three people, so four lanes become three owners. Lane boundaries and contracts
+don't change.
+
+| Person | Lanes | Why this fit |
+|---|---|---|
+| **Avery Allen** | 2. Detection, plus contract owner | Wrote the classifier, `demo/detector.py` and the eval harness, so the port and every accuracy question land with the person who can check them against Python. Owns `Sources/Models/` and runs the weekly sync. |
+| **Person B** | 1. Boxes & Input, both ends | Firmware and the iPhone BLE code are two halves of one contract. One owner means no mismatch between what the box sends and what the phone expects. Needs a Mac, a real iPhone and the boards. |
+| **Person C** | 3. Cloud & Alerts + 4. iPhone app, plus direction from Lane 2 | Everything the user touches: screens, haptics, notifications, settings and history. Lane 3 is light on the Spark plan and its outputs (settings, history, alerts) are UI anyway. Also owns the direction code and model loading, which C writes in week 1. |
+
+Moved between lanes to balance the load:
+
+- **"That was wrong" clip export** (Lane 3, W4) goes to Avery. It feeds retraining in `ml/`.
+- **ADPCM accuracy test** (Lane 2, W3) moves to **W1** and runs in Python with the eval harness.
+  The audio codec is part of the BLE contract, which freezes at the end of W1, so the answer is
+  needed first.
+- **Caregiver view** (Lane 3, later) is cut. Crashlytics is optional.
+
+If the hardware members can assemble the boxes and flash firmware, Person B keeps the iPhone
+`Input` module and the BLE contract and picks up the Firestore half of Lane 3 from Person C.
+
+### Week 1 (Oct 22–29): software only, before parts arrive
+
+No hardware and no screens this week. **Goal:** when the boxes arrive, a `.wav` played through
+4 simulated boxes already comes out of the Swift package as `SoundEvent`s with the right label
+and angle, in unit tests.
+
+**Where preprocessing happens.** Every sample from every box gets preprocessed, but most of it
+on the box itself. The phone gets a loudness number from all 4 boxes and audio from only one.
+
+| Where | Input | Work | Owner this week |
+|---|---|---|---|
+| Each box | every sample from its own mic | peak dB per 100 ms; IMA ADPCM encode only while told to stream | B (firmware, compile + native tests) |
+| Phone, all 4 boxes | the 4 `level` streams | quiet level, peak hold, direction, loudest-box switching | C |
+| Phone, 1 box | the loudest box's audio | ADPCM decode, 1 s ring buffer, gate, classifier | B (decode), Avery (the rest) |
+
+Sending all 4 audio streams would be about 256 kbit/s over BLE, close to what iOS sustains,
+for 4 copies of the same sound.
+
+| Avery | Person B | Person C |
+|---|---|---|
+| ADPCM in Python + test files; ADPCM accuracy test (decides the codec) | Minimal loudness sketch, ready to flash on arrival | Xcode project + `SoundRingKit`; settle TensorFlow Lite packaging |
+| Two-phone body-shadow test | Fake box on a Mac | Four-box simulator |
+| Freeze `Sources/Models/` with B and C by Sun Oct 25 | ADPCM encoder (C++) + decoder (Swift) | Model loading in Swift, matching Python |
+| Python fixtures; detector decision rules in Swift | Stretch: full BLE firmware, iPhone `Input` module | Direction + box switching in Swift (C owns it for good) |
+
+**Done when:** contracts are merged; `swift test` passes `.wav` → simulated boxes → direction +
+classifier → `SoundEvent` with the expected label and the angle on the right side; the fake box
+reaches an iPhone over BLE; the firmware builds for the XIAO ESP32-S3.
+
+**Deferred to week 2:** screens, Firebase, notifications.
+
+**Detailed tasks with files, due dates and done-when checks:** [`docs/week1-tasks.md`](week1-tasks.md).
 
 All of Lanes 1 (phone side), 2, 3 and 4 is code **inside the same iPhone app**. See
 `docs/architecture.md` for where each part lives.
@@ -94,13 +149,13 @@ usage stays inside the free quotas.
 
 Firestore quotas are plenty: batched history writes at a few hundred per day per tester.
 
-**Hardware is the only real cost**, about $75 for 4 boxes (`docs/hardware-bom.md`). Ask
+**Hardware is the only real cost**: $107.92 ordered 2026-10-22 (`docs/hardware-bom.md`). Ask
 Convergent for budget or borrow parts before buying.
 
 ## The contracts (agree in week 1, then freeze)
 
-These are the only coupling between lanes. Change them only by a PR that all four people
-approve.
+These are the only coupling between lanes. Change them only by a PR that all three software
+owners approve.
 
 ### 1. BLE: each box → iPhone (draft v0)
 
@@ -201,7 +256,7 @@ build entirely on it until Lane 2 is ready.
 firmware/                        Lane 1   PlatformIO project, one code base for all 4 boxes
 ios/SoundRing.xcodeproj          Lane 4   target: SoundRing (iOS); SoundRingWatch added later
 ios/Packages/SoundRingKit/
-    Sources/Models/              ALL      the contracts above; PR needs 4 approvals
+    Sources/Models/              ALL      the contracts above; PR needs all 3 owners
     Sources/Input/               Lane 1   CoreBluetooth for 4 boxes, ADPCM decode, WavFileBoxSource
     Sources/Detection/           Lane 2   preprocessing, direction, classifier, event tracking
     Sources/Cloud/               Lane 3   Firebase, notifications, (later) WatchConnectivity
@@ -232,12 +287,12 @@ The watch app starts only after week 5 is done, if there's time.
 **Owns:** the 4 boxes, the firmware, and the iPhone code that receives BLE and turns it into
 `BoxLevel`s and `SoundFrame`s. Done when Lane 2 can swap `WavFileBoxSource` for the real thing.
 
-**Stack:** Seeed XIAO ESP32-C3, 1× INMP441 I2S mic per box, LiPo, C++ on PlatformIO
+**Stack:** Seeed XIAO ESP32-S3, 1× INMP441 I2S mic per box, LiPo, C++ on PlatformIO
 (Arduino-ESP32), NimBLE. iPhone side: CoreBluetooth.
 
-- [ ] **W1** Order parts: `docs/hardware-bom.md`.
+- [x] **W1** Order parts: `docs/hardware-bom.md`. Ordered 2026-10-22.
 - [ ] **W1** Breadboard one box. Print the peak level (dBFS) every 100 ms to the serial monitor. Auto-gain off.
-- [ ] **W1** **Body-shadow test** with 2 boxes (chest + back): clap in front, then behind. Pass = the facing box reads ≥ 6 dB louder every time. Report the result to the team.
+- [ ] **W1** **Body-shadow test** with 2 boxes (chest + back): clap in front, then behind. Pass = the facing box reads ≥ 6 dB louder every time. Repeat with a low sound (a car horn or truck clip from a phone speaker): the body blocks low frequencies less, so the gap may shrink. Report both results to the team.
 - [ ] **W1** Finalise the BLE contract with Lane 2.
 - [ ] **W2** Firmware: `level` characteristic at 10 Hz, clip flag, IMA ADPCM encoder, `audio` characteristic started and stopped by `control`.
 - [ ] **W2** Record `.wav` files from a box for Lane 2's tests.
@@ -260,8 +315,9 @@ the loudest box, the classifier, thresholds, tracking a sound from start to stop
 - [ ] **W2** Inference: 1 s ring buffer, hop 0.1 s, per-class thresholds and persistence (port from `ml/config.py` and `demo/live_demo.py`), loudness gate, `SoundEvent` start/update/stop tracking.
 - [ ] **W2** Unit tests driven by `WavFileBoxSource`.
 - [ ] **W3** Direction (`docs/body-boxes-plan.md`): rolling quiet level per box (quietest in the last 10 s), peak hold over 0.3 s, `atan2(RIGHT − LEFT, FRONT − BACK)`, fall back to the loudest box when the result is tiny.
+- [ ] **W3** Don't let a long safety sound become the quiet level. A siren lasting over 10 s would otherwise read as silence. Freeze the quiet level while a safety class is active.
 - [ ] **W3** Loudest-box switching: call `streamAudio(from:)` when another box is louder by 3 dB for 0.3 s.
-- [ ] **W3** ADPCM test: encode/decode the test set, measure the accuracy drop. If it's over ~2 points, tell Lane 1 now.
+- [ ] **W1** ADPCM test (moved up from W3): encode/decode the test set in the Python eval harness, measure the accuracy drop. If it's over ~2 points, change the codec in the BLE contract before it freezes.
 - [ ] **W3** Priority scoring (from `CLASS_PRIORITY`), `isUrgent` rule, label → `FilterCategory` mapping as a data file, not code.
 - [ ] **W4+** Direction accuracy on real boxes: 8 positions around the wearer, record hits.
 - [ ] **Optional** If accuracy through the boxes' mics is bad, record our own clips and retrain the head in `ml/`.
@@ -291,9 +347,9 @@ Manager, UserNotifications (local only). Later: WatchConnectivity.
   ```
 - [ ] **W2** `Cloud` module: settings read/write, offline persistence, event history upload batched (every 30 s and on app background, never per frame). Build against `MockEventSource`.
 - [ ] **W3** Urgent alerts: local notification with `.timeSensitive` interruption level, so it shows and vibrates with the phone locked.
-- [ ] **W4** "That was wrong" flow: save the last 2 s of audio as a `.wav` named with the correct label on the phone, and export through the share sheet (AirDrop to a laptop, into `ml/data/my_clips/<label>/`).
+- [ ] **W4** (Avery) "That was wrong" flow: save the last 2 s of audio as a `.wav` named with the correct label on the phone, and export through the share sheet (AirDrop to a laptop, into `ml/data/my_clips/<label>/`).
 - [ ] **Later** Watch link: phone → watch active events via `sendMessage` when reachable, `updateApplicationContext` as the latest-state fallback; watch → phone settings changes.
-- [ ] **Later (optional)** Caregiver view: a second phone signed in to the same account reads the `events` collection live with a Firestore listener.
+- ~~**Later (optional)** Caregiver view~~ Cut 2026-10-22 for a three-person team.
 
 ## Lane 4: iPhone app (UI)
 
@@ -325,7 +381,7 @@ week 4.
   Apple ID. At least one real iPhone for BLE testing. The demo phone must be the Apple ID
   owner's device, installed from their Mac.
 - **Git:** one branch per feature, PR into `main`, one reviewer from another lane. Contract
-  changes (`Sources/Models/`) need all four.
+  changes (`Sources/Models/`) need all three owners.
 - **Weekly sync (15 min):** each lane reports what's done against its checklist, plus anything
   blocking. Integration weeks get a joint working session.
 
