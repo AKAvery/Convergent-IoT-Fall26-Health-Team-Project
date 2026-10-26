@@ -44,7 +44,7 @@ don't change.
 
 Moved between lanes to balance the load:
 
-- **"That was wrong" clip export** (Lane 3, W4) goes to Avery. It feeds retraining in `ml/`.
+- ~~**"That was wrong" clip export**~~ Cut 2026-10-26: we won't retrain the model, so it has no use.
 - **ADPCM accuracy test** (Lane 2, W3) moves to **W1** and runs in Python with the eval harness.
   The audio codec is part of the BLE contract, which freezes at the end of W1, so the answer is
   needed first.
@@ -262,7 +262,7 @@ ios/Packages/SoundRingKit/
     Sources/Cloud/               Lane 3   Firebase, notifications, (later) WatchConnectivity
 ios/SoundRing/                   Lane 4   SwiftUI screens
 firebase/                        Lane 3   firestore.rules, firebase.json (emulators)
-ml/                              Lane 2   trained model + training pipeline, unchanged
+ml/                              Lane 2   trained model, unchanged (no retraining)
 ```
 
 ## Timeline
@@ -320,7 +320,7 @@ the loudest box, the classifier, thresholds, tracking a sound from start to stop
 - [ ] **W1** ADPCM test (moved up from W3): encode/decode the test set in the Python eval harness, measure the accuracy drop. If it's over ~2 points, change the codec in the BLE contract before it freezes.
 - [ ] **W3** Priority scoring (from `CLASS_PRIORITY`), `isUrgent` rule, label → `FilterCategory` mapping as a data file, not code.
 - [ ] **W4+** Direction accuracy on real boxes: 8 positions around the wearer, record hits.
-- [ ] **Optional** If accuracy through the boxes' mics is bad, record our own clips and retrain the head in `ml/`.
+- [ ] **W4+** If accuracy through the boxes' mics is bad, record our own clips and re-tune the thresholds with the eval harness. No retraining.
 
 **Targets:** median label latency ≤ 0.4 s from onset, false positives measured on 30 min of real
 room noise, safety classes (siren, alarm, glass, horn) missed under 5%, direction right to
@@ -328,7 +328,7 @@ within one side (front / back / left / right) 9 times out of 10.
 
 ## Lane 3: Cloud & Alerts
 
-**Owns:** Firebase, notifications, saving clips for retraining, and later the watch link. Done
+**Owns:** Firebase, notifications, and later the watch link. Done
 when settings sync, history shows up, and an urgent sound alerts with the phone locked.
 Everything stays on free tiers (see [Free-tier limits](#free-tier-limits)).
 
@@ -347,7 +347,7 @@ Manager, UserNotifications (local only). Later: WatchConnectivity.
   ```
 - [ ] **W2** `Cloud` module: settings read/write, offline persistence, event history upload batched (every 30 s and on app background, never per frame). Build against `MockEventSource`.
 - [ ] **W3** Urgent alerts: local notification with `.timeSensitive` interruption level, so it shows and vibrates with the phone locked.
-- [ ] **W4** (Avery) "That was wrong" flow: save the last 2 s of audio as a `.wav` named with the correct label on the phone, and export through the share sheet (AirDrop to a laptop, into `ml/data/my_clips/<label>/`).
+- ~~**W4** (Avery) "That was wrong" flow~~ Cut 2026-10-26: we won't retrain the model.
 - [ ] **Later** Watch link: phone → watch active events via `sendMessage` when reachable, `updateApplicationContext` as the latest-state fallback; watch → phone settings changes.
 - ~~**Later (optional)** Caregiver view~~ Cut 2026-10-22 for a three-person team.
 

@@ -63,8 +63,8 @@ is a complete product; the watch comes later.
 
 **No. The model is already trained.** YAMNet comes pretrained from Google, and our head is in
 `ml/models/sound_head.tflite` (13 sounds, 93.8% on test data). The app just loads the
-`.tflite` files. Retrain later only if accuracy is bad through the boxes' mics, or to add new
-sounds.
+`.tflite` files. We won't retrain it. If accuracy is bad through the boxes' mics, we tune
+thresholds and preprocessing instead.
 
 ## The layers
 
@@ -76,7 +76,6 @@ sounds.
 | 4 | Model (inference) | YAMNet names the sound | TensorFlow Lite, our `.tflite` files | **The screen: "horn, behind you, loud"** |
 | 5 | Screen (frontend) | Show the arrow + name, buzz if urgent | SwiftUI | **Firebase: settings + history** |
 | 6 | Firebase (backend) | Remember settings and history | Auth + Firestore, free plan | **Back to the app when it opens** |
-| – | Training (optional, later) | Retrain the model on a laptop | Python, `ml/` | **The model: new `.tflite` files** |
 | – | Watch (later) | Arrow + buzz | SwiftUI on watchOS | – |
 
 ## Do we need a backend server?
