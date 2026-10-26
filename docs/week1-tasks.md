@@ -2,6 +2,7 @@
 
 Parts arrive around Oct 29. Until then: no hardware, no screens. Three people: **Avery**,
 **B** and **C** (fill in names). The summary and the reasoning are in `docs/team-plan.md`.
+If one of us has no Mac, see the alternative split in `docs/week1-tasks-no-mac.md`.
 
 **Goal for Thu Oct 29:** in a unit test, a siren `.wav` played through 4 simulated boxes from
 135° comes out of `SoundRingKit` as a `SoundEvent` labelled `siren`, pointing back-right. The
