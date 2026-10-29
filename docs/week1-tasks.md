@@ -211,8 +211,9 @@ table is for checking that no area is forgotten.
 
 ### C4. Model loading in Swift · ~3 h · due Tue 27 · needs C1, A4 · Must
 - `Sources/Detection/Classifier.swift`: load `yamnet_embedding_metadata.tflite` and
-  `sound_head.tflite`, peak-normalise the last 0.975 s, run YAMNet, then the head, and return
-  13 probabilities.
+  `sound_head.tflite`, scale the whole 1 s buffer so its peak is 0.5 (`x / peak * 0.5`), *then*
+  keep the last 0.975 s, run YAMNet, then the head, and return 13 probabilities. Normalising
+  only the last 0.975 s changes probabilities by up to 0.19 and fails the fixtures.
 - **Done when** the probabilities match Avery's fixtures within 1e-4 on all 30 clips. Avery's
   decision rules (A5) build on top.
 
