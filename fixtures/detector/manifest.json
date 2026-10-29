@@ -1,0 +1,627 @@
+{
+ "format_version": 1,
+ "generator": "ml/export_detector_fixtures.py",
+ "seed": 2026,
+ "split": "test split of ml/work/manifest.csv (ESC-50 fold 5, FSDD speakers ['theo'])",
+ "models": {
+  "dir": "ml/models",
+  "sha256": {
+   "yamnet_embedding_metadata.tflite": "7baa72708e3919bae5a5dc78d932847bc28008af14febd083eff62d28af9c72a",
+   "sound_head.tflite": "538de3a0611afdfd01a020818fc41ea23b252d24489241913cef4318acbcd5e3",
+   "labels.json": "ae08a3c23d76a93e3c275fce43ce54f29acdbcc5ed50a7e3cf4af87cd5cd1888",
+   "thresholds.json": "8b81cdf8a8794f9f1ce8350f29853b4d21d240217d72f381aa90b70f526bac4b"
+  }
+ },
+ "detector": {
+  "preset": "all",
+  "sample_rate": 16000,
+  "hop_samples": 1600,
+  "buffer_samples": 16000,
+  "window_samples": 15600,
+  "params": {
+   "hop_s": 0.1,
+   "buffer_s": 1.0,
+   "gate_db": -70.0,
+   "gate_window_s": 0.1,
+   "persist": 5,
+   "other_veto": true,
+   "other_veto_margin": 0.15,
+   "veto_exempt_priority": 8,
+   "label_margin": 0.1,
+   "loud_ref_db": -60.0,
+   "loud_floor": 0.2,
+   "input_gain_db": 0.0,
+   "clip_level": 0.99
+  },
+  "labels": [
+   "alarm",
+   "appliance",
+   "baby_cry",
+   "car_horn",
+   "cat",
+   "clap",
+   "dog",
+   "footsteps",
+   "glass_break",
+   "knock",
+   "other",
+   "siren",
+   "speech"
+  ],
+  "thresholds": {
+   "alarm": 0.800000011920929,
+   "appliance": 0.6000000238418579,
+   "baby_cry": 0.800000011920929,
+   "car_horn": 0.75,
+   "cat": 0.30000001192092896,
+   "clap": 0.2800000011920929,
+   "dog": 0.2800000011920929,
+   "footsteps": 0.5,
+   "glass_break": 0.5,
+   "knock": 0.25999999046325684,
+   "other": 0.30000001192092896,
+   "siren": 0.6000000238418579,
+   "speech": 0.800000011920929
+  },
+  "class_priority": {
+   "siren": 10,
+   "alarm": 10,
+   "glass_break": 8,
+   "car_horn": 9,
+   "baby_cry": 7,
+   "knock": 5,
+   "clap": 4,
+   "dog": 3,
+   "cat": 2,
+   "appliance": 2,
+   "speech": 2,
+   "footsteps": 1
+  },
+  "presets": {
+   "all": null,
+   "safety": [
+    "alarm",
+    "car_horn",
+    "glass_break",
+    "siren"
+   ],
+   "babies": [
+    "baby_cry"
+   ],
+   "privacy": [
+    "speech"
+   ],
+   "household": [
+    "appliance",
+    "cat",
+    "clap",
+    "dog",
+    "footsteps",
+    "knock"
+   ]
+  }
+ },
+ "tolerances": {
+  "probs_abs": 0.0001,
+  "decisions": "exact (gated, hits labels and order, label)"
+ },
+ "fragile_eps": {
+  "prob": 0.0001,
+  "level_db": 0.01,
+  "score": 0.001
+ },
+ "coverage_clips": {
+  "gated_by_level": 12,
+  "hit": 25,
+  "label": 25,
+  "label_safety_exempt": 8,
+  "label_withheld_by_margin": 6,
+  "multiple_hits": 1,
+  "not_ready": 30,
+  "other_veto": 2,
+  "waiting_for_persist": 26
+ },
+ "clips": [
+  {
+   "id": "00_alarm_5-211408-A-37",
+   "kind": "target",
+   "true_label": "alarm",
+   "json": "00_alarm_5-211408-A-37.json",
+   "audio": "00_alarm_5-211408-A-37.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "alarm"
+   ],
+   "big_labels": [
+    "alarm"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "01_alarm_5-233645-A-37",
+   "kind": "target",
+   "true_label": "alarm",
+   "json": "01_alarm_5-233645-A-37.json",
+   "audio": "01_alarm_5-233645-A-37.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "alarm"
+   ],
+   "big_labels": [
+    "alarm"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "02_appliance_5-188365-A-36",
+   "kind": "target",
+   "true_label": "appliance",
+   "json": "02_appliance_5-188365-A-36.json",
+   "audio": "02_appliance_5-188365-A-36.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "appliance"
+   ],
+   "big_labels": [
+    "appliance"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "03_appliance_5-212059-A-36",
+   "kind": "target",
+   "true_label": "appliance",
+   "json": "03_appliance_5-212059-A-36.json",
+   "audio": "03_appliance_5-212059-A-36.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "appliance"
+   ],
+   "big_labels": [
+    "appliance"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "04_baby_cry_5-151085-A-20",
+   "kind": "target",
+   "true_label": "baby_cry",
+   "json": "04_baby_cry_5-151085-A-20.json",
+   "audio": "04_baby_cry_5-151085-A-20.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "baby_cry"
+   ],
+   "big_labels": [
+    "baby_cry"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "05_baby_cry_5-198411-B-20",
+   "kind": "target",
+   "true_label": "baby_cry",
+   "json": "05_baby_cry_5-198411-B-20.json",
+   "audio": "05_baby_cry_5-198411-B-20.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "baby_cry"
+   ],
+   "big_labels": [
+    "baby_cry"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "06_car_horn_5-179865-A-43",
+   "kind": "target",
+   "true_label": "car_horn",
+   "json": "06_car_horn_5-179865-A-43.json",
+   "audio": "06_car_horn_5-179865-A-43.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "car_horn"
+   ],
+   "big_labels": [
+    "car_horn"
+   ],
+   "gated_steps": 25,
+   "fragile_steps": []
+  },
+  {
+   "id": "07_car_horn_5-180156-B-43",
+   "kind": "target",
+   "true_label": "car_horn",
+   "json": "07_car_horn_5-180156-B-43.json",
+   "audio": "07_car_horn_5-180156-B-43.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "car_horn"
+   ],
+   "big_labels": [
+    "car_horn"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "08_cat_5-214759-A-5",
+   "kind": "target",
+   "true_label": "cat",
+   "json": "08_cat_5-214759-A-5.json",
+   "audio": "08_cat_5-214759-A-5.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "cat"
+   ],
+   "big_labels": [
+    "cat"
+   ],
+   "gated_steps": 32,
+   "fragile_steps": []
+  },
+  {
+   "id": "09_cat_5-259169-A-5",
+   "kind": "target",
+   "true_label": "cat",
+   "json": "09_cat_5-259169-A-5.json",
+   "audio": "09_cat_5-259169-A-5.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "cat"
+   ],
+   "big_labels": [
+    "cat"
+   ],
+   "gated_steps": 43,
+   "fragile_steps": [
+    71
+   ]
+  },
+  {
+   "id": "10_clap_5-218494-A-22",
+   "kind": "target",
+   "true_label": "clap",
+   "json": "10_clap_5-218494-A-22.json",
+   "audio": "10_clap_5-218494-A-22.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "clap"
+   ],
+   "big_labels": [
+    "clap"
+   ],
+   "gated_steps": 28,
+   "fragile_steps": []
+  },
+  {
+   "id": "11_clap_5-254160-A-22",
+   "kind": "target",
+   "true_label": "clap",
+   "json": "11_clap_5-254160-A-22.json",
+   "audio": "11_clap_5-254160-A-22.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "clap"
+   ],
+   "big_labels": [
+    "clap"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "12_dog_5-203128-A-0",
+   "kind": "target",
+   "true_label": "dog",
+   "json": "12_dog_5-203128-A-0.json",
+   "audio": "12_dog_5-203128-A-0.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "dog"
+   ],
+   "big_labels": [
+    "dog"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "13_dog_5-208030-A-0",
+   "kind": "target",
+   "true_label": "dog",
+   "json": "13_dog_5-208030-A-0.json",
+   "audio": "13_dog_5-208030-A-0.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "dog"
+   ],
+   "big_labels": [
+    "dog"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "14_footsteps_5-263491-A-25",
+   "kind": "target",
+   "true_label": "footsteps",
+   "json": "14_footsteps_5-263491-A-25.json",
+   "audio": "14_footsteps_5-263491-A-25.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "footsteps"
+   ],
+   "big_labels": [
+    "footsteps"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "15_footsteps_5-263501-A-25",
+   "kind": "target",
+   "true_label": "footsteps",
+   "json": "15_footsteps_5-263501-A-25.json",
+   "audio": "15_footsteps_5-263501-A-25.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "footsteps"
+   ],
+   "big_labels": [
+    "footsteps"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "16_glass_break_5-221529-A-39",
+   "kind": "target",
+   "true_label": "glass_break",
+   "json": "16_glass_break_5-221529-A-39.json",
+   "audio": "16_glass_break_5-221529-A-39.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "glass_break"
+   ],
+   "big_labels": [
+    "glass_break"
+   ],
+   "gated_steps": 39,
+   "fragile_steps": [
+    70,
+    71,
+    72,
+    73
+   ]
+  },
+  {
+   "id": "17_glass_break_5-260432-A-39",
+   "kind": "target",
+   "true_label": "glass_break",
+   "json": "17_glass_break_5-260432-A-39.json",
+   "audio": "17_glass_break_5-260432-A-39.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "glass_break"
+   ],
+   "big_labels": [
+    "glass_break"
+   ],
+   "gated_steps": 45,
+   "fragile_steps": []
+  },
+  {
+   "id": "18_knock_5-218980-A-30",
+   "kind": "target",
+   "true_label": "knock",
+   "json": "18_knock_5-218980-A-30.json",
+   "audio": "18_knock_5-218980-A-30.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "footsteps",
+    "knock"
+   ],
+   "big_labels": [
+    "footsteps",
+    "knock"
+   ],
+   "gated_steps": 42,
+   "fragile_steps": []
+  },
+  {
+   "id": "19_knock_5-251426-A-30",
+   "kind": "target",
+   "true_label": "knock",
+   "json": "19_knock_5-251426-A-30.json",
+   "audio": "19_knock_5-251426-A-30.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "knock"
+   ],
+   "big_labels": [
+    "knock"
+   ],
+   "gated_steps": 18,
+   "fragile_steps": []
+  },
+  {
+   "id": "20_siren_5-133989-B-42",
+   "kind": "target",
+   "true_label": "siren",
+   "json": "20_siren_5-133989-B-42.json",
+   "audio": "20_siren_5-133989-B-42.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "alarm",
+    "siren"
+   ],
+   "big_labels": [
+    "alarm",
+    "siren"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "21_siren_5-160551-A-42",
+   "kind": "target",
+   "true_label": "siren",
+   "json": "21_siren_5-160551-A-42.json",
+   "audio": "21_siren_5-160551-A-42.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "siren"
+   ],
+   "big_labels": [
+    "siren"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "22_speech_3_theo_42",
+   "kind": "target",
+   "true_label": "speech",
+   "json": "22_speech_3_theo_42.json",
+   "audio": "22_speech_3_theo_42.bin",
+   "num_samples": 67200,
+   "num_steps": 42,
+   "fired": [
+    "speech"
+   ],
+   "big_labels": [
+    "speech"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "23_speech_3_theo_44",
+   "kind": "target",
+   "true_label": "speech",
+   "json": "23_speech_3_theo_44.json",
+   "audio": "23_speech_3_theo_44.bin",
+   "num_samples": 67200,
+   "num_steps": 42,
+   "fired": [
+    "speech"
+   ],
+   "big_labels": [
+    "speech"
+   ],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "24_other_5-182404-A-18",
+   "kind": "other",
+   "true_label": "other",
+   "json": "24_other_5-182404-A-18.json",
+   "audio": "24_other_5-182404-A-18.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [],
+   "big_labels": [],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "25_other_5-194930-A-1",
+   "kind": "other",
+   "true_label": "other",
+   "json": "25_other_5-194930-A-1.json",
+   "audio": "25_other_5-194930-A-1.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [
+    "dog"
+   ],
+   "big_labels": [
+    "dog"
+   ],
+   "gated_steps": 25,
+   "fragile_steps": []
+  },
+  {
+   "id": "26_noise_noise",
+   "kind": "noise",
+   "true_label": "other",
+   "json": "26_noise_noise.json",
+   "audio": "26_noise_noise.bin",
+   "num_samples": 64000,
+   "num_steps": 40,
+   "fired": [],
+   "big_labels": [],
+   "gated_steps": 9,
+   "fragile_steps": []
+  },
+  {
+   "id": "27_silence_silence",
+   "kind": "silence",
+   "true_label": null,
+   "json": "27_silence_silence.json",
+   "audio": "27_silence_silence.bin",
+   "num_samples": 48000,
+   "num_steps": 30,
+   "fired": [],
+   "big_labels": [],
+   "gated_steps": 30,
+   "fragile_steps": []
+  },
+  {
+   "id": "28_quiet_noise_quiet_noise",
+   "kind": "quiet_noise",
+   "true_label": null,
+   "json": "28_quiet_noise_quiet_noise.json",
+   "audio": "28_quiet_noise_quiet_noise.bin",
+   "num_samples": 64000,
+   "num_steps": 40,
+   "fired": [],
+   "big_labels": [],
+   "gated_steps": 40,
+   "fragile_steps": []
+  },
+  {
+   "id": "29_quiet_siren_5-133989-B-42",
+   "kind": "quiet_target",
+   "true_label": "siren",
+   "json": "29_quiet_siren_5-133989-B-42.json",
+   "audio": "29_quiet_siren_5-133989-B-42.bin",
+   "num_samples": 144000,
+   "num_steps": 90,
+   "fired": [],
+   "big_labels": [],
+   "gated_steps": 90,
+   "fragile_steps": []
+  }
+ ]
+}
