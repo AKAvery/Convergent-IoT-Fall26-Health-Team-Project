@@ -1,0 +1,170 @@
+{
+ "codec": "IMA ADPCM 4-bit, 16 kHz mono int16",
+ "nibble_order": "low nibble first: byte[k] = code[2k] | (code[2k+1] << 4)",
+ "samples_per_packet": 320,
+ "packet_bytes": 169,
+ "packet_layout": [
+  {
+   "offset": 0,
+   "size": 2,
+   "field": "seq",
+   "type": "uint16 LE, 0 for the first packet of each case, +1 per packet"
+  },
+  {
+   "offset": 2,
+   "size": 2,
+   "field": "reserved",
+   "type": "uint16, always 0"
+  },
+  {
+   "offset": 4,
+   "size": 1,
+   "field": "flags",
+   "type": "uint8, bit0 = clipped (any input sample of the packet is -32768 or 32767)"
+  },
+  {
+   "offset": 5,
+   "size": 2,
+   "field": "predictor",
+   "type": "int16 LE, encoder state before the packet's first sample"
+  },
+  {
+   "offset": 7,
+   "size": 1,
+   "field": "step_index",
+   "type": "uint8 0..88, same moment"
+  },
+  {
+   "offset": 8,
+   "size": 1,
+   "field": "pad",
+   "type": "uint8, always 0"
+  },
+  {
+   "offset": 9,
+   "size": 160,
+   "field": "codes",
+   "type": "320 x 4-bit codes, low nibble first"
+  }
+ ],
+ "initial_state": {
+  "predictor": 0,
+  "step_index": 0
+ },
+ "sample_format": "*.bin are raw little-endian int16 (input, decoded) or concatenated 169-byte packets",
+ "cases": [
+  {
+   "name": "silence",
+   "description": "3 packets of digital zeros",
+   "n_samples": 960,
+   "n_packets": 3,
+   "files": {
+    "input": "silence_input.bin",
+    "packets": "silence_packets.bin",
+    "decoded": "silence_decoded.bin"
+   },
+   "sha256": {
+    "input": "155e437b946ac82ae591ff382b8d19efda9397b2282672dbabd91ec31ce8a651",
+    "packets": "2fd7b125c13c6a80caa9dbd2bc3031778f10b36da50297f5a1f129b387ce263b",
+    "decoded": "155e437b946ac82ae591ff382b8d19efda9397b2282672dbabd91ec31ce8a651"
+   },
+   "max_abs_error": 0,
+   "snr_db": null
+  },
+  {
+   "name": "sine_1k",
+   "description": "1 kHz sine, -6 dBFS peak, 10 packets",
+   "n_samples": 3200,
+   "n_packets": 10,
+   "files": {
+    "input": "sine_1k_input.bin",
+    "packets": "sine_1k_packets.bin",
+    "decoded": "sine_1k_decoded.bin"
+   },
+   "sha256": {
+    "input": "10a46c9d0947bd21fe6033610a8ab89468006bb80405d72e9259ba6b46e1f922",
+    "packets": "a4fda1e330c709965d2916865499934b1c9086b301cc6ac358a2317c9c79b661",
+    "decoded": "d0aa5be3160c964eca6e8c615292339c72e46c76a4bafdc80e7d5cd3b80309f6"
+   },
+   "max_abs_error": 16183,
+   "snr_db": 23.59
+  },
+  {
+   "name": "square_clipped",
+   "description": "250 Hz full-scale square (+32767 / -32768), 10 packets: slope overload + predictor clamp",
+   "n_samples": 3200,
+   "n_packets": 10,
+   "files": {
+    "input": "square_clipped_input.bin",
+    "packets": "square_clipped_packets.bin",
+    "decoded": "square_clipped_decoded.bin"
+   },
+   "sha256": {
+    "input": "61d853e227e825a74bd95113bc9ee8c4384fe43ebee28e0ae4ce2a011786c839",
+    "packets": "185b1dca6a333303d42f3f18e64464c4f8c2108c6e50769c5201ec7aab217b0b",
+    "decoded": "1297036984c7a56b533feebe09e2e4702e301b029aeeadf44ac9eda492020628"
+   },
+   "max_abs_error": 62336,
+   "snr_db": 6.55
+  },
+  {
+   "name": "impulse",
+   "description": "full-scale impulses (+32767, -32768, 16384, a 4-sample -32768 run) in silence, 3 packets",
+   "n_samples": 960,
+   "n_packets": 3,
+   "files": {
+    "input": "impulse_input.bin",
+    "packets": "impulse_packets.bin",
+    "decoded": "impulse_decoded.bin"
+   },
+   "sha256": {
+    "input": "5aab8ae1e8c34008985e1ef9de51215fae40914e1f8dd4390303ee505c9598da",
+    "packets": "d24201d139fe73d9c46c612b0f0d751bfe4901f690167b53af25a81fdb2e9145",
+    "decoded": "8b8a357c09758b2f0b707415692348224c9cc421f57b44d396bb1bbf2f2014b5"
+   },
+   "max_abs_error": 32757,
+   "snr_db": 0.02
+  },
+  {
+   "name": "esc50_dog",
+   "description": "ESC-50 1-100032-A-0.wav (dog), loudest 1 s, -3 dBFS peak, 50 packets",
+   "n_samples": 16000,
+   "n_packets": 50,
+   "files": {
+    "input": "esc50_dog_input.bin",
+    "packets": "esc50_dog_packets.bin",
+    "decoded": "esc50_dog_decoded.bin"
+   },
+   "sha256": {
+    "input": "212314f1a28224b77fbbadf90fadcb5a9614bbcb57574832b371e7447fcd7a59",
+    "packets": "aebdd06b8256b3af97d33392b8839d36c91fea889782dedaca49e67acef5ef9d",
+    "decoded": "8692aef0767db469c2bfc300d94c17dbdeb9038d76278843203ba66d03243d91"
+   },
+   "max_abs_error": 2874,
+   "snr_db": 23.48
+  },
+  {
+   "name": "main",
+   "description": "3 s: log sweep 100 Hz-7 kHz at -6 dBFS (1 s), ESC-50 1-104089-A-22.wav clap at -3 dBFS (1 s), silence (1 s); 150 packets. Also written as input.wav / packets.bin / decoded.wav",
+   "n_samples": 48000,
+   "n_packets": 150,
+   "files": {
+    "input": "main_input.bin",
+    "packets": "main_packets.bin",
+    "decoded": "main_decoded.bin"
+   },
+   "sha256": {
+    "input": "c38e129bfcf628b36a00b1286a00488777ebefe02ab85fdb9c4c19b4df4f740f",
+    "packets": "ff03fea2b04bbb98abad7a93b710beb6528fb101b5f7db4d327d50823d37dda0",
+    "decoded": "c3689d09f70c0726a8e48def8fc7922af69d9ed3fc89005d72d56d5fde41d0ae"
+   },
+   "max_abs_error": 8905,
+   "snr_db": 22.15,
+   "also": {
+    "input_wav": "input.wav",
+    "packets_bin": "packets.bin",
+    "decoded_wav": "decoded.wav"
+   }
+  }
+ ]
+}
