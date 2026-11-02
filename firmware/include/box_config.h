@@ -51,16 +51,28 @@ constexpr uint8_t CONTROL_START_AUDIO = 1;
 
 // ---------------------------------------------------------------------------
 // Pins (GPIO numbers; XIAO silkscreen label in the comment). Same on all boxes.
-// The mic uses the D8/D9/D10 side of the board, next to 3V3 and GND.
-// Avoid GPIO0/3/45/46 (strapping) and D6/D7 = GPIO43/44 (UART TX/RX).
+// The INMP441 goes on different pins per chip because the strapping pins differ.
 // ---------------------------------------------------------------------------
-constexpr int PIN_LED      = 21;   // onboard yellow user LED, active LOW (Seeed wiki)
-constexpr int LED_ON       = 0;    // LOW  = on
-constexpr int LED_OFF      = 1;    // HIGH = off
+#include <sdkconfig.h>
 
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+// XIAO ESP32-C3. No user LED (only the charge LED), so PIN_LED = -1 and led.h does nothing.
+// Avoid GPIO2/8/9 = D0/D8/D9 (strapping; GPIO9 is the BOOT button) and D6/D7 = GPIO21/20 (UART).
+constexpr int PIN_LED      = -1;
+constexpr int PIN_I2S_SCK  = 4;    // D2  -> INMP441 SCK (bit clock)
+constexpr int PIN_I2S_WS   = 5;    // D3  -> INMP441 WS  (word select / LRCLK)
+constexpr int PIN_I2S_SD   = 3;    // D1  <- INMP441 SD  (data out of the mic)
+#else
+// XIAO ESP32-S3. The mic uses the D8/D9/D10 side of the board, next to 3V3 and GND.
+// Avoid GPIO0/3/45/46 (strapping) and D6/D7 = GPIO43/44 (UART TX/RX).
+constexpr int PIN_LED      = 21;   // onboard yellow user LED, active LOW (Seeed wiki)
 constexpr int PIN_I2S_SCK  = 7;    // D8  -> INMP441 SCK (bit clock)
 constexpr int PIN_I2S_WS   = 8;    // D9  -> INMP441 WS  (word select / LRCLK)
 constexpr int PIN_I2S_SD   = 9;    // D10 <- INMP441 SD  (data out of the mic)
+#endif
+constexpr int LED_ON       = 0;    // LOW  = on
+constexpr int LED_OFF      = 1;    // HIGH = off
+
 // INMP441 L/R -> GND (left channel), VDD -> 3V3, GND -> GND.
 
 // ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@
 #include <NimBLEDevice.h>
 #include <math.h>
 #include "box_config.h"
+#include "led.h"
 
 static NimBLECharacteristic* levelChar   = nullptr;
 static NimBLECharacteristic* audioChar   = nullptr;
@@ -32,14 +33,14 @@ class ServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* server, NimBLEConnInfo& info) override {
     Serial.printf("[ble] connected: %s (%u connection(s))\n", info.getAddress().toString().c_str(),
                   server->getConnectedCount());
-    digitalWrite(PIN_LED, LED_ON);
+    ledSet(true);
   }
   void onDisconnect(NimBLEServer* server, NimBLEConnInfo& info, int reason) override {
     Serial.printf("[ble] disconnected: %s, reason 0x%02X; advertising again\n",
                   info.getAddress().toString().c_str(), reason);
     audioRequested = false;
     levelSubscribed = false;
-    if (server->getConnectedCount() == 0) digitalWrite(PIN_LED, LED_OFF);
+    if (server->getConnectedCount() == 0) ledSet(false);
   }
   void onMTUChange(uint16_t mtu, NimBLEConnInfo& info) override {
     Serial.printf("[ble] MTU = %u (audio needs >= %u)\n", mtu, AUDIO_LEN + 3);
@@ -82,8 +83,7 @@ static void printBanner() {
 }
 
 void setup() {
-  pinMode(PIN_LED, OUTPUT);
-  digitalWrite(PIN_LED, LED_OFF);
+  ledInit();
   Serial.begin(115200);
   uint32_t t0 = millis();
   while (!Serial && millis() - t0 < 3000) delay(10);

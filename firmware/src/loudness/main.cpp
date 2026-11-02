@@ -12,6 +12,7 @@
 #include <driver/i2s.h>
 #include <math.h>
 #include "box_config.h"
+#include "led.h"
 
 static constexpr i2s_port_t I2S_PORT = I2S_NUM_0;
 static constexpr int FRAMES_PER_READ = 160;                 // 10 ms; 10 reads = one 100 ms window
@@ -68,8 +69,7 @@ static bool startI2S() {
 }
 
 void setup() {
-  pinMode(PIN_LED, OUTPUT);
-  digitalWrite(PIN_LED, LED_OFF);
+  ledInit();
   Serial.begin(115200);
   uint32_t t0 = millis();
   while (!Serial && millis() - t0 < 3000) delay(10);
@@ -79,8 +79,8 @@ void setup() {
                 MIC_GAIN_BITS * 6, MIC_SLOT);
   if (!startI2S()) {
     while (true) {   // fast blink = I2S setup failed
-      digitalWrite(PIN_LED, LED_ON);  delay(100);
-      digitalWrite(PIN_LED, LED_OFF); delay(100);
+      ledSet(true);  delay(100);
+      ledSet(false); delay(100);
     }
   }
 
@@ -117,5 +117,5 @@ void loop() {
   int16_t otherX10 = peakToDbX10(otherPeak);
   Serial.printf("%lu,%.1f,%d,%.1f\n", (unsigned long)millis(), dbX10 / 10.0f, (int)clipped, otherX10 / 10.0f);
 
-  digitalWrite(PIN_LED, clipped ? LED_ON : LED_OFF);   // LED flashes on clipping
+  ledSet(clipped);   // LED flashes on clipping
 }

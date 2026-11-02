@@ -11,6 +11,7 @@ NimBLE for Bluetooth LE. The BLE contract (byte layouts) is in `docs/team-plan.m
 | `board_check` | Blinks the user LED at 1 Hz and prints chip model, MACs, flash and PSRAM size once a second | No |
 | `ble_fake` | BLE peripheral `SoundBox-<POSITION>` with the contract service. Sends fake `level` at 10 Hz and logs `control` writes. `audio` is defined but idle | No |
 | `loudness` | Reads the INMP441 at 16 kHz (fixed gain, no AGC) and prints peak dBFS for each 100 ms window | **Yes** |
+| `wifi_check` | Scans for networks, joins the one in `include/wifi_secrets.h` and checks internet access. Bring-up test only, the boxes talk BLE | No |
 
 Code layout: `src/<env>/main.cpp` per environment (picked by `build_src_filter`), with
 everything shared in `include/box_config.h`.
@@ -59,6 +60,33 @@ It becomes `-DBOX_POS_<POSITION>`. `box_config.h` turns that into the name `Soun
 and the angle (FRONT 0°, RIGHT 90°, BACK 180°, LEFT 270°). An invalid value fails the build.
 All three environments print the position, so `board_check` also confirms which box a
 board was flashed as.
+
+## Wi-Fi check (`wifi_check`)
+
+Confirms a board's radio works and shows why a join fails. Wi-Fi is not part of the box
+contract. Setup, once per laptop:
+
+```sh
+cp include/wifi_secrets.example.h include/wifi_secrets.h   # gitignored, never commit it
+# edit WIFI_SSID / WIFI_PASSWORD in include/wifi_secrets.h
+pio run -e wifi_check -t upload -t monitor
+```
+
+What it prints, in order: a scan of every network it hears (the target is marked `->`), the
+join result, IP/gateway/DNS/RSSI, then `[net] INTERNET OK`, and an RSSI line every 5 s. The LED
+blinks fast while connecting and stays on while connected.
+
+- The ESP32-S3 is **2.4 GHz only** and needs WPA2/WPA3-Personal or an open network.
+  Campus networks with an EID login (WPA2-Enterprise) won't work. Neither will captive
+  portals: the sketch reports those as `captive portal`.
+- **iPhone hotspot:** Settings → Personal Hotspot → turn on **Maximize Compatibility**
+  (that switches it to 2.4 GHz) and keep that screen open while the board connects.
+- Common reasons it prints: `NO_AP_FOUND` = SSID not heard (spelling, 5 GHz, range);
+  `AUTH_FAIL` / `4WAY_HANDSHAKE_TIMEOUT` / `HANDSHAKE_TIMEOUT` = wrong password;
+  `ASSOC_FAIL` = the router refused the board (MAC filtering or registration needed; the
+  Wi-Fi MAC is printed at boot).
+- If the scan is empty or every RSSI is below about −80 dBm, attach the board's U.FL antenna
+  if the pack came with one. BLE uses the same antenna.
 
 ## BLE UUIDs
 
