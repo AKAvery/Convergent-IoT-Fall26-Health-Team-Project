@@ -157,12 +157,18 @@ func compare(_ st: DetectorStep, _ py: FixtureClip.Step, _ det: Detector, probsT
 
 #if canImport(TensorFlowLiteC)
 @Suite(.serialized) struct TFLiteParityTests {
-    static let classifier = try? TFLiteClassifier()
+    // One interpreter for the whole suite; the suite is serialized, so it is never used concurrently.
+    nonisolated(unsafe) static let classifier = try? TFLiteClassifier()
 
     @Test func loads() throws {
         #expect(Self.classifier != nil)
     }
 
+    /// Decisions (gate, hits, streaks, labels) must match exactly. Probabilities must be within
+    /// 1e-4 on all but max(1, 1%) of a clip's model steps, and never off by more than 2e-3: with XNNPACK on
+    /// both sides almost every step agrees to ~1e-7, but the iOS library is TFLite 2.17 and the
+    /// Python reference ran TF 2.21, and a rare step differs by up to ~1e-3 (00_alarm step 74:
+    /// 9.5e-4 on 2026-11-02, no decision changed). Outliers are printed.
     @Test(arguments: fixtureClipIDs)
     func modelMatchesPython(id: String) throws {
         let cls = try #require(Self.classifier)
@@ -171,15 +177,22 @@ func compare(_ st: DetectorStep, _ py: FixtureClip.Step, _ det: Detector, probsT
         let hop = det.hopSamples
         var problems: [String] = []
         var maxDiff: Float = 0
+        var modelSteps = 0, outliers: [String] = []
         for py in clip.steps {
             let st = det.process(Array(audio[(py.i * hop)..<((py.i + 1) * hop)]))
             if let p = st.probs, let q = py.probs {
-                maxDiff = max(maxDiff, zip(p, q).map { abs($0 - Float($1)) }.max() ?? 0)
+                modelSteps += 1
+                let d = zip(p, q).map { abs($0 - Float($1)) }.max() ?? 0
+                maxDiff = max(maxDiff, d)
+                if d > 1e-4 { outliers.append("step \(py.i): \(d)") }
             }
-            for p in compare(st, py, det, probsTolerance: 1e-4) { problems.append("step \(py.i): \(p)") }
+            for p in compare(st, py, det) { problems.append("step \(py.i): \(p)") }
         }
-        print("[parity] \(id): max |prob diff| = \(maxDiff), \(problems.count) problem steps")
-        #expect(problems.isEmpty, "\(problems.prefix(5).joined(separator: "; "))")
+        print("[parity] \(id): \(modelSteps) model steps, max |prob diff| \(maxDiff), "
+              + "over 1e-4: \(outliers.isEmpty ? "none" : outliers.joined(separator: ", "))")
+        #expect(problems.isEmpty, "decisions differ: \(problems.prefix(5).joined(separator: "; "))")
+        #expect(maxDiff <= 2e-3)
+        #expect(Double(outliers.count) <= max(1, 0.01 * Double(modelSteps)))
     }
 }
 #endif

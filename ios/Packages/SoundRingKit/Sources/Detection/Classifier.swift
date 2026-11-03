@@ -59,6 +59,7 @@ public enum TFLiteError: Error, CustomStringConvertible {
 final class TFLiteModel {
     private let model: OpaquePointer
     private let interpreter: OpaquePointer
+    private let xnnpack: UnsafeMutablePointer<TfLiteDelegate>?
     let name: String
 
     init(url: URL, threads: Int32) throws {
@@ -66,6 +67,12 @@ final class TFLiteModel {
         guard let m = TfLiteModelCreateFromFile(url.path) else { throw TFLiteError.load(name) }
         let options = TfLiteInterpreterOptionsCreate()
         TfLiteInterpreterOptionsSetNumThreads(options, threads)
+        // XNNPACK, like the Python interpreter the eval harness and fixtures use: same float
+        // kernels, so the probabilities match theirs (and it is the faster CPU path).
+        var xo = TfLiteXNNPackDelegateOptionsDefault()
+        xo.num_threads = threads
+        xnnpack = TfLiteXNNPackDelegateCreate(&xo)
+        if let xnnpack { TfLiteInterpreterOptionsAddDelegate(options, xnnpack) }
         defer { TfLiteInterpreterOptionsDelete(options) }
         guard let i = TfLiteInterpreterCreate(m, options) else {
             TfLiteModelDelete(m); throw TFLiteError.load(name)
@@ -77,6 +84,7 @@ final class TFLiteModel {
 
     deinit {
         TfLiteInterpreterDelete(interpreter)
+        if let xnnpack { TfLiteXNNPackDelegateDelete(xnnpack) }
         TfLiteModelDelete(model)
     }
 
