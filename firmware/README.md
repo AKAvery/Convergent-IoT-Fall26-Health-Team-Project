@@ -178,9 +178,9 @@ The same on all 4 boxes. Check the silkscreen labels. **XIAO ESP32-C3** (what we
 |---|---|---|---|
 | VDD | 3V3 | — | |
 | GND | GND | — | |
-| SCK (bit clock) | D2 | GPIO4 | `PIN_I2S_SCK` |
-| WS (word select) | D3 | GPIO5 | `PIN_I2S_WS` |
-| SD (data out) | D1 | GPIO3 | `PIN_I2S_SD` |
+| SCK (bit clock) | D3 | GPIO5 | `PIN_I2S_SCK` |
+| WS (word select) | D4 | GPIO6 | `PIN_I2S_WS` |
+| SD (data out) | D5 | GPIO7 | `PIN_I2S_SD` |
 | L/R | GND | — | left channel |
 
 Why these pins: they avoid the C3's strapping pins GPIO2/8/9 (D0/D8/D9; GPIO9 is the BOOT

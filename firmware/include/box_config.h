@@ -59,9 +59,9 @@ constexpr uint8_t CONTROL_START_AUDIO = 1;
 // XIAO ESP32-C3. No user LED (only the charge LED), so PIN_LED = -1 and led.h does nothing.
 // Avoid GPIO2/8/9 = D0/D8/D9 (strapping; GPIO9 is the BOOT button) and D6/D7 = GPIO21/20 (UART).
 constexpr int PIN_LED      = -1;
-constexpr int PIN_I2S_SCK  = 4;    // D2  -> INMP441 SCK (bit clock)
-constexpr int PIN_I2S_WS   = 5;    // D3  -> INMP441 WS  (word select / LRCLK)
-constexpr int PIN_I2S_SD   = 3;    // D1  <- INMP441 SD  (data out of the mic)
+constexpr int PIN_I2S_SCK  = 5;    // D3  -> INMP441 SCK (bit clock)
+constexpr int PIN_I2S_WS   = 6;    // D4  -> INMP441 WS  (word select / LRCLK)
+constexpr int PIN_I2S_SD   = 7;    // D5  <- INMP441 SD  (data out of the mic)
 #else
 // XIAO ESP32-S3. The mic uses the D8/D9/D10 side of the board, next to 3V3 and GND.
 // Avoid GPIO0/3/45/46 (strapping) and D6/D7 = GPIO43/44 (UART TX/RX).
