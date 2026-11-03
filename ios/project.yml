@@ -1,0 +1,25 @@
+name: SoundRing
+options:
+  bundleIdPrefix: edu.utexas.convergent
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  SoundRingKit:
+    path: Packages/SoundRingKit
+targets:
+  SoundRing:
+    type: application
+    platform: iOS
+    sources: [SoundRing]
+    dependencies:
+      - package: SoundRingKit
+        product: Models
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        PRODUCT_BUNDLE_IDENTIFIER: edu.utexas.convergent.soundring
+        CODE_SIGN_STYLE: Automatic
