@@ -1,0 +1,15 @@
+{
+ "alarm": 0.8,
+ "appliance": 0.6,
+ "baby_cry": 0.8,
+ "car_horn": 0.75,
+ "cat": 0.3,
+ "clap": 0.28,
+ "dog": 0.28,
+ "footsteps": 0.5,
+ "glass_break": 0.5,
+ "knock": 0.26,
+ "other": 0.3,
+ "siren": 0.6,
+ "speech": 0.8
+}

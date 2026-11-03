@@ -15,3 +15,6 @@ __pycache__/
 
 # eval harness scratch (the .md reports are kept)
 ml/work/*.pkl
+
+# TensorFlow Lite C library, fetched by ios/scripts/fetch_tflite.sh
+ios/Packages/SoundRingKit/Vendor/

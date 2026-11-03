@@ -1,0 +1,106 @@
+import Foundation
+import Models
+
+// Direction from body shadow (docs/body-boxes-plan.md): each box's loudness above its own quiet
+// level, peak-held over 0.3 s, then a tug of war: angle = atan2(RIGHT - LEFT, FRONT - BACK).
+
+public struct DirectionConfig: Sendable {
+    /// Quiet level = the quietest the box has been over this long.
+    public var quietWindowS = 10.0
+    /// Each box reports its peak over this long, so a clap still counts.
+    public var peakHoldS = 0.3
+    /// Below this tug-of-war length (dB) the arrow points at the loudest box instead.
+    public var minVectorDb: Float = 3
+    /// No box this far above its quiet level: direction unclear.
+    public var minLoudnessDb: Float = 3
+    /// A box with no `level` for this long is ignored.
+    public var staleS = 1.0
+    /// Switch the audio stream when another box is louder by this much ...
+    public var switchMarginDb: Float = 3
+    /// ... for this long.
+    public var switchHoldS = 0.3
+
+    public init() {}
+}
+
+/// Tracks the 4 boxes' levels. Feed every `BoxLevel`; ask for the direction and the loudest box.
+public struct DirectionTracker: Sendable {
+    public let config: DirectionConfig
+    private var history: [BoxPosition: [(t: Double, db: Float)]] = [:]
+    private var frozenQuiet: [BoxPosition: Float]?
+    private var candidate: (box: BoxPosition, since: Double)?
+    public private(set) var streamingBox: BoxPosition?
+
+    public init(config: DirectionConfig = DirectionConfig()) { self.config = config }
+
+    public mutating func add(_ level: BoxLevel, at t: Double) {
+        var h = history[level.box] ?? []
+        h.append((t, level.peakDbfs))
+        let cutoff = t - config.quietWindowS
+        if let first = h.firstIndex(where: { $0.t >= cutoff }), first > 0 { h.removeFirst(first) }
+        history[level.box] = h
+    }
+
+    /// While a long safety sound plays, keep the quiet levels from before it, or a 10 s siren
+    /// would become the new "quiet".
+    public mutating func freezeQuietLevels(_ freeze: Bool) {
+        if freeze, frozenQuiet == nil {
+            frozenQuiet = Dictionary(uniqueKeysWithValues: BoxPosition.allCases.compactMap { b in quietRaw(b).map { (b, $0) } })
+        } else if !freeze {
+            frozenQuiet = nil
+        }
+    }
+
+    private func quietRaw(_ box: BoxPosition) -> Float? { history[box]?.map(\.db).min() }
+
+    public func quietLevel(_ box: BoxPosition) -> Float? { frozenQuiet?[box] ?? quietRaw(box) }
+
+    /// dB above the box's quiet level, peak-held; nil if the box is silent or stale.
+    public func loudness(_ box: BoxPosition, at t: Double) -> Float? {
+        guard let h = history[box], let last = h.last, t - last.t <= config.staleS,
+              let quiet = quietLevel(box) else { return nil }
+        let held = h.reversed().prefix { t - $0.t <= config.peakHoldS }.map(\.db).max() ?? last.db
+        return max(0, held - quiet)
+    }
+
+    public func loudestBox(at t: Double) -> (box: BoxPosition, db: Float)? {
+        BoxPosition.allCases.compactMap { b in loudness(b, at: t).map { (b, $0) } }.max { $0.1 < $1.1 }
+    }
+
+    /// Azimuth in the team convention, or nil when no box is clearly above its quiet level or
+    /// only one box is reporting (one box can't tell direction).
+    public func azimuth(at t: Double) -> Float? {
+        let l = Dictionary(uniqueKeysWithValues: BoxPosition.allCases.compactMap { b in loudness(b, at: t).map { (b, $0) } })
+        guard l.count >= 2, let loudest = l.max(by: { $0.value < $1.value }),
+              loudest.value >= config.minLoudnessDb else { return nil }
+        let sideways = (l[.right] ?? 0) - (l[.left] ?? 0)
+        let forward = (l[.front] ?? 0) - (l[.back] ?? 0)
+        if (sideways * sideways + forward * forward).squareRoot() < config.minVectorDb {
+            return loudest.key.facingDeg
+        }
+        return Azimuth.normalized(atan2(sideways, forward) * 180 / .pi)
+    }
+
+    /// The box that should stream audio. Switches only when another box has been louder by
+    /// `switchMarginDb` for `switchHoldS`, so the stream doesn't flip back and forth. Returns the
+    /// new box when it changes.
+    public mutating func updateStreamingBox(at t: Double) -> BoxPosition? {
+        guard let (top, topDb) = loudestBox(at: t) else { return nil }
+        guard let current = streamingBox else {
+            streamingBox = top
+            return top
+        }
+        let currentDb = loudness(current, at: t)
+        if top != current, currentDb == nil || topDb >= currentDb! + config.switchMarginDb {
+            if candidate?.box != top { candidate = (top, t) }
+            if currentDb == nil || t - candidate!.since >= config.switchHoldS {
+                streamingBox = top
+                candidate = nil
+                return top
+            }
+        } else {
+            candidate = nil
+        }
+        return nil
+    }
+}

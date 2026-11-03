@@ -1,0 +1,9 @@
+{
+  "comment": "Which FilterCategory each label belongs to, and which labels are urgent (alert + buzz in the background). Label names are ml/models/labels.json.",
+  "categories": {
+    "safety": ["siren", "alarm", "car_horn", "glass_break"],
+    "babies": ["baby_cry"],
+    "privacy": ["speech"]
+  },
+  "urgent": ["siren", "alarm", "car_horn", "glass_break"]
+}
