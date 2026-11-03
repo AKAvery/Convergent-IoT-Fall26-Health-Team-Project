@@ -1,20 +1,30 @@
 # Sound box firmware
 
 One PlatformIO project for all 4 body-worn boxes (FRONT, BACK, LEFT, RIGHT). Each box is a
-**Seeed XIAO ESP32-S3** (plain, not Sense) with one **INMP441** I2S mic. Arduino framework,
+**Seeed XIAO ESP32-C3** with one **INMP441** I2S mic (the boards that arrived are C3s; the
+project still builds for the XIAO ESP32-S3 by changing `[box] board` in `platformio.ini`). Arduino framework,
 NimBLE for Bluetooth LE. The BLE contract (byte layouts) is in `docs/team-plan.md`,
 "### 1. BLE: each box → iPhone". The shared values below come from
 [`include/box_config.h`](include/box_config.h), the file the iPhone side should copy from.
 
 | Environment | What it does | Needs the mic? |
 |---|---|---|
-| `board_check` | Blinks the user LED at 1 Hz and prints chip model, MACs, flash and PSRAM size once a second | No |
+| `board_check` | Prints chip model, MACs, flash and PSRAM size once a second (and blinks the LED on an S3) | No |
 | `ble_fake` | BLE peripheral `SoundBox-<POSITION>` with the contract service. Sends fake `level` at 10 Hz and logs `control` writes. `audio` is defined but idle | No |
 | `loudness` | Reads the INMP441 at 16 kHz (fixed gain, no AGC) and prints peak dBFS for each 100 ms window | **Yes** |
+| `box` | **The real box.** Same BLE service as `ble_fake`, but `level` is the mic's peak dBFS, and after `control` = 01 it streams ADPCM `audio` at 50 Hz | **Yes** |
 | `wifi_check` | Scans for networks, joins the one in `include/wifi_secrets.h` and checks internet access. Bring-up test only, the boxes talk BLE | No |
 
-Code layout: `src/<env>/main.cpp` per environment (picked by `build_src_filter`), with
-everything shared in `include/box_config.h`.
+Code layout:
+
+- `src/<env>/main.cpp`: one program per environment (picked by `build_src_filter`).
+- `include/box_config.h`: everything the boxes and the iPhone must agree on (UUIDs, pins, audio format).
+- `include/mic.h`: I2S setup and reading for the INMP441 (`loudness`, `box`).
+- `include/soundbox_ble.h`: the BLE service, advertising and callbacks (`ble_fake`, `box`).
+- `lib/ima_adpcm/`: the IMA ADPCM encoder and decoder, a C++ port of `ml/adpcm.py`. No Arduino code,
+  so it also builds on the Mac for the tests.
+- `test/test_adpcm/`: checks the C++ codec against `fixtures/adpcm/`, byte for byte.
+- `tools/box_listen.py`: connects to a box from the Mac, like the phone will.
 
 Pinned versions: platform `platformio/espressif32 @ 7.1.3` (Arduino-ESP32 2.0.17, ESP-IDF 4.4),
 `h2zero/NimBLE-Arduino @ 2.5.1`.
@@ -76,7 +86,7 @@ What it prints, in order: a scan of every network it hears (the target is marked
 join result, IP/gateway/DNS/RSSI, then `[net] INTERNET OK`, and an RSSI line every 5 s. The LED
 blinks fast while connecting and stays on while connected.
 
-- The ESP32-S3 is **2.4 GHz only** and needs WPA2/WPA3-Personal or an open network.
+- The ESP32-C3 (and S3) is **2.4 GHz only** and needs WPA2/WPA3-Personal or an open network.
   Campus networks with an EID login (WPA2-Enterprise) won't work. Neither will captive
   portals: the sketch reports those as `captive portal`.
 - **iPhone hotspot:** Settings → Personal Hotspot → turn on **Maximize Compatibility**
@@ -97,7 +107,7 @@ The same on every box. Boxes are told apart by their advertised name, `SoundBox-
 |---|---|---|---|
 | Service | `f36b9eba-c1e3-4a55-a725-f566c01a5bdf` | primary, in the advertisement | |
 | `level` | `e89a434d-2aa6-4a70-ae89-a47761df7c97` | read, notify | 5 B, 10 Hz: `seq` u16 LE, `peak_db` i16 LE (dBFS × 10), `flags` u8 (bit0 clipped, bit1 low battery) |
-| `audio` | `a6c379f3-83f3-4927-be5c-ae2966376ec4` | notify | 169 B, 50 Hz after `control` = 1 (**not sent yet**) |
+| `audio` | `a6c379f3-83f3-4927-be5c-ae2966376ec4` | notify | 169 B, 50 Hz after `control` = 1 (`box` only): `seq` u16 LE, reserved u16, `flags` u8 (bit0 clipped), then 164 B of IMA ADPCM (see `fixtures/adpcm/README.md`) |
 | `control` | `f2b50bb3-d6c1-46a0-b5cf-ff3b5a2396f0` | write, write without response | 1 B: `01` start audio, `00` stop |
 
 Advertising: the advertisement carries flags and the 128-bit service UUID, which is what iOS
@@ -111,7 +121,7 @@ Example `level` packet: `34 12 A8 FD 00` = seq 0x1234, peak −60.0 dBFS, no fla
 ### Checking `ble_fake` with LightBlue (iPhone)
 
 1. Flash `ble_fake` and open the serial monitor. It prints the UUIDs and `advertising started`.
-2. In LightBlue, find `SoundBox-FRONT` and connect. The board's LED turns on while connected.
+2. In LightBlue, find `SoundBox-FRONT` and connect. On an S3 the LED turns on while connected.
 3. Open the service `F36B9EBA-…`, tap the `level` characteristic (`E89A434D-…`) and tap
    **Listen for notifications**. Values arrive 10×/s. Bytes 2–3 (little-endian) sweep between
    `A8 FD` (−600, −60.0 dBFS) and `9C FF` (−100, −10.0 dBFS) over 20 s, and bytes 0–1 count up.
@@ -122,27 +132,64 @@ Example `level` packet: `34 12 A8 FD 00` = seq 0x1234, peak −60.0 dBFS, no fla
 iOS caches names. If a box was flashed under a different position, toggle Bluetooth off
 and on before trusting the name in LightBlue.
 
+## The real box (`box`) and listening from the Mac
+
+```sh
+pio run -e box -t upload -t monitor
+```
+
+Once a second the serial log prints the mic level, the unused I2S slot (for `MIC_SLOT`), whether
+a phone is connected, the MTU, and while streaming how many audio packets were sent or skipped:
+
+```
+[box] level  -62.4 dBFS (other slot -100.0) | phone: level on, mtu 247 | audio sent 50, busy 0, not subscribed 0, mtu too small 0
+```
+
+`busy` means the BLE stack had no free buffer, so that packet was skipped. The phone sees it as
+a `seq` gap. Every packet carries its own decoder state, so the next one still decodes.
+
+From the repo root, listen to the box with the Mac (the same steps the iPhone app will do):
+
+```sh
+.venv/bin/python firmware/tools/box_listen.py                  # `level` only, 10 s
+.venv/bin/python firmware/tools/box_listen.py --audio out.wav  # also stream audio and save it
+```
+
+It prints the level once a second as a bar, then a summary: packets per second (`level` should
+be 10, `audio` 50), missed packets, and the MTU. With `--audio` it decodes every packet with
+`ml/adpcm.py` and saves a 16 kHz WAV you can listen to. Only one central can connect at a time,
+so close LightBlue or the app first.
+
+### ADPCM tests (no board needed)
+
+```sh
+pio test -e native
+```
+
+Encodes every case in `fixtures/adpcm/` with `lib/ima_adpcm` and checks all 169 bytes of every
+packet against the Python reference, then decodes each packet on its own and checks every
+sample. The Swift decoder in the app must pass the same files.
+
 ## Pins
 
-The same on all 4 boxes. The mic sits on the right-hand header (USB-C at the top, chip facing
-you), next to 3V3 and GND, so all its wires stay on one side. Check the silkscreen labels.
+The same on all 4 boxes. Check the silkscreen labels. **XIAO ESP32-C3** (what we have):
 
 | INMP441 pin | XIAO pin | GPIO | `box_config.h` |
 |---|---|---|---|
 | VDD | 3V3 | — | |
 | GND | GND | — | |
-| SCK (bit clock) | D8 | GPIO7 | `PIN_I2S_SCK` |
-| WS (word select) | D9 | GPIO8 | `PIN_I2S_WS` |
-| SD (data out) | D10 | GPIO9 | `PIN_I2S_SD` |
+| SCK (bit clock) | D2 | GPIO4 | `PIN_I2S_SCK` |
+| WS (word select) | D3 | GPIO5 | `PIN_I2S_WS` |
+| SD (data out) | D1 | GPIO3 | `PIN_I2S_SD` |
 | L/R | GND | — | left channel |
 
-| Onboard | GPIO | Notes |
-|---|---|---|
-| User LED (yellow) | GPIO21 | **Active LOW**: LOW = on (Seeed wiki) |
+Why these pins: they avoid the C3's strapping pins GPIO2/8/9 (D0/D8/D9; GPIO9 is the BOOT
+button) and the UART pins D6/D7 (GPIO21/20). The C3 has no user LED (only the charge LED), so
+`PIN_LED = -1` and the LED calls do nothing. The board has a U.FL antenna connector: clip the
+antenna on, since BLE range is poor without it.
 
-Why these pins: D8/D9/D10 are free (no SPI is used) and sit next to 3V3/GND. They avoid the
-strapping pins GPIO0/3/45/46 and the UART pins D6/D7 (GPIO43/44), and they leave D0–D5 free
-(for example a battery-voltage divider on an ADC pin later).
+On the **XIAO ESP32-S3** the mic goes on D8/D9/D10 instead (SCK GPIO7, WS GPIO8, SD GPIO9),
+and the yellow user LED is GPIO21, active LOW. `box_config.h` picks the right set by chip.
 
 ## Audio and gain (`loudness`)
 
@@ -152,7 +199,7 @@ strapping pins GPIO0/3/45/46 and the UART pins D6/D7 (GPIO43/44), and they leave
   `MIC_GAIN_BITS` adds fixed digital gain in 6 dB steps and defaults to 0 (unity). There is no
   AGC. Keep it identical on all 4 boxes, and low enough that a car horn at 1 m doesn't clip.
 - Peak dBFS = 20·log10(|peak| / 32768) over each 1600-sample window. A window that is all
-  zeros reads −100.0. Clipped = any sample hit ±32767/−32768, and the LED flashes when it does.
+  zeros reads −100.0. Clipped = any sample hit ±32767/−32768 (on an S3 the LED flashes).
 - Output, one CSV line per 100 ms: `t_ms,peak_dbfs,clipped,other_slot_dbfs`.
   The firmware reads both I2S slots. With L/R on GND the mic should be in slot 0 and
   `other_slot_dbfs` should sit at about −100. **If the signal shows up in the last column
@@ -169,9 +216,9 @@ strapping pins GPIO0/3/45/46 and the UART pins D6/D7 (GPIO43/44), and they leave
 2. Plug in and run `pio device list`. A `/dev/cu.usbmodem…` port (Espressif or Seeed USB ID
    `2886:0056`/`303a:…`) should appear. If nothing shows up, try another cable, since some
    USB-C cables are charge-only.
-3. `pio run -e board_check -t upload -t monitor`. Expect the yellow LED blinking at 1 Hz and,
-   once a second: `ESP32-S3`, 2 cores at 240 MHz, **8 MB flash on chip**, **~8 MB PSRAM**. A
-   board showing `PSRAM NOT FOUND` or the wrong flash size isn't the expected part, so set it aside.
+3. `pio run -e board_check -t upload -t monitor`. Expect, once a second: `ESP32-C3`, 1 core at
+   160 MHz, **4 MB flash on chip**, 0 KB PSRAM (the C3 has none). Nothing blinks, since the C3 has
+   no user LED. (An S3 shows 2 cores at 240 MHz, 8 MB flash, ~8 MB PSRAM and blinks its LED.)
 4. Write down each board's **BLE MAC** with a sticker number (1–6), and note which 4 become
    FRONT/BACK/LEFT/RIGHT and which 2 are spares.
 5. Optional: flash `ble_fake` on one board and run the LightBlue check above.
@@ -187,6 +234,6 @@ strapping pins GPIO0/3/45/46 and the UART pins D6/D7 (GPIO43/44), and they leave
 ## Relation to the week-1 task list
 
 `docs/week1-tasks.md` B0 asked for `firmware/level_sketch/`. That job is now the `loudness`
-environment of this project. B2 names the environments `seeed_xiao_esp32s3` and `native`.
-This project uses `board_check`/`ble_fake`/`loudness` for now. The real BLE firmware (`level`
-from the mic, ADPCM `audio`) and a `native` test env are still to do.
+environment. B1's C++ half (ADPCM encoder) is `lib/ima_adpcm` with `pio test -e native`. B2
+(full BLE firmware) is the `box` environment. Still to do on the box: a battery-voltage reading
+for the low-battery flag, and checking `box` with a soldered mic.
