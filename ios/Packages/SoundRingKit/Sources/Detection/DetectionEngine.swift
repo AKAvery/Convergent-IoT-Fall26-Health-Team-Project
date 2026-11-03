@@ -12,6 +12,8 @@ public struct DetectionStatus: Sendable {
     public var top3: [(label: String, prob: Float)] = []
     public var framesReceived = 0
     public var framesMissed = 0
+
+    public init() {}
 }
 
 /// Lane 2 end to end: `BoxSource` (levels + decoded audio) -> direction, loudest-box switching,

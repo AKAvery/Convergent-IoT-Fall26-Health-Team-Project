@@ -15,6 +15,16 @@ targets:
     dependencies:
       - package: SoundRingKit
         product: Models
+      - package: SoundRingKit
+        product: Input
+      - package: SoundRingKit
+        product: Detection
+    info:
+      path: SoundRing/Info.plist
+      properties:
+        # The 4 body boxes stream audio over BLE; keep receiving it with the screen locked.
+        NSBluetoothAlwaysUsageDescription: Halo connects to your pins over Bluetooth to hear the sounds around you.
+        UIBackgroundModes: [bluetooth-central]
     settings:
       base:
         SWIFT_VERSION: "6.0"

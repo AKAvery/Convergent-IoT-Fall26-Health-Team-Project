@@ -10,7 +10,8 @@ final class LiveModel {
 }
 
 struct LiveView: View {
-    var source: any CueSource = DemoCueSource()
+    var source: any CueSource = LiveCueSource()
+    private let session = LiveSession.shared
     @State private var model = LiveModel()
     @State private var filter: LiveFilter = .all
     @AppStorage(SettingKey.showDistance) private var showDistance = true
@@ -51,6 +52,10 @@ struct LiveView: View {
                         .foregroundStyle(Theme.accent)
                         .accessibilityHidden(true)
                 }
+                Text(session.summary)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 FrontScale(cues: visible)
                 LivePanel(cues: visible, filter: $filter, showDistance: showDistance)
                     .frame(height: 330)
