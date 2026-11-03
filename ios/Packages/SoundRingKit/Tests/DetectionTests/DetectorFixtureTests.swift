@@ -136,6 +136,27 @@ func compare(_ st: DetectorStep, _ py: FixtureClip.Step, _ det: Detector, probsT
         #expect(thr == labels.map { Float(m.detector.thresholds[$0]!) })
     }
 
+    /// `sustain` (speech stays on while >= 0.5 once it has fired). No fixture clip exercises it, so
+    /// this pins it to demo/detector.py's decide() on the same sequence (expected strings from Python).
+    @Test func sustainMatchesPython() throws {
+        let m = try loadManifest().detector
+        let seq: [Float] = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.6, 0.6, 0.45, 0.6, 0.9]
+        for (sustain, expected) in [(["speech": Float(0.5)], "....SSSS..."), ([:], "....SS.....")] {
+            var params = DetectorParams()
+            params.sustain = sustain
+            let det = Detector(params: params, classifier: ReplayClassifier(
+                labels: m.labels, thresholds: m.labels.map { Float(m.thresholds[$0]!) }))
+            let si = try #require(det.names.firstIndex(of: "speech"))
+            var got = ""
+            for v in seq {
+                var p = [Float](repeating: 0, count: det.names.count)
+                p[si] = v
+                got += det.decide(p, levelDb: -30).hits.contains { $0.label == "speech" } ? "S" : "."
+            }
+            #expect(got == expected, "sustain \(sustain)")
+        }
+    }
+
     @Test(arguments: fixtureClipIDs)
     func replayMatchesPython(id: String) throws {
         let m = try loadManifest().detector

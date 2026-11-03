@@ -84,7 +84,7 @@ and the model runs on noise there. That matches the eval harness.
 |---|---|
 | `preset` | `all`: every hit can become the big label |
 | `sample_rate`, `hop_samples` (1600), `buffer_samples` (16000), `window_samples` (15600) | Streaming shape |
-| `params` | Every `DetectorParams` field: `hop_s`, `buffer_s`, `gate_db` (−70), `gate_window_s` (0.1), `persist` (5), `other_veto`, `other_veto_margin` (0.15), `veto_exempt_priority` (8), `label_margin` (0.10), `loud_ref_db` (−60), `loud_floor` (0.2), `input_gain_db` (0), `clip_level` |
+| `params` | Every `DetectorParams` field: `hop_s`, `buffer_s`, `gate_db` (−70), `gate_window_s` (0.1), `persist` (5), `other_veto`, `other_veto_margin` (0.15), `veto_exempt_priority` (8), `label_margin` (0.10), `loud_ref_db` (−60), `loud_floor` (0.2), `input_gain_db` (0), `clip_level`, `sustain` (`{"speech": 0.5}`: once fired, a class stays on while its probability is at least this) |
 | `labels` | Class names in model output order. `probs` and `streak` use this order. |
 | `thresholds` | Per class, as the float32 value the detector compares against (`thresholds.json` cast to float32) |
 | `class_priority` | Priority per class. A class that isn't listed (`other`) counts as 1. |

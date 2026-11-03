@@ -24,6 +24,9 @@ public struct DetectorParams: Sendable, Equatable, Codable {
     public var loudFloor = 0.2
     public var inputGainDb = 0.0
     public var clipLevel = 0.99
+    /// Once a class has fired it stays on while its probability is >= this instead of its
+    /// threshold (demo/detector.py `sustain`): speech no longer drops out at every dip.
+    public var sustain: [String: Float] = ["speech": 0.5]
 
     public init() {}
 
@@ -164,7 +167,9 @@ public final class Detector {
         let otherTop = iOther != nil && argmax(p) == iOther
         var hits: [(Int, Hit)] = []
         for (i, name) in names.enumerated() {
-            if name == otherLabel || p[i] < thresholds[i] { streak[i] = 0; continue }
+            var thr = thresholds[i]
+            if streak[i] >= params.persist, let s = params.sustain[name] { thr = min(thr, s) }   // already on
+            if name == otherLabel || p[i] < thr { streak[i] = 0; continue }
             if params.otherVeto, otherTop, let io = iOther,
                DetectorTables.priority(name) < params.vetoExemptPriority,
                p[i] < p[io] + Float(params.otherVetoMargin) {

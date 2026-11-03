@@ -13,7 +13,7 @@ without audio hardware.
         s = det.process(block)                     # dict: label, conf, hits, alerts, gated, ...
 """
 import json, math
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 import numpy as np
 
@@ -63,6 +63,13 @@ class DetectorParams:
     loud_floor: float = 0.2
     input_gain_db: float = 0.0     # digital gain applied before everything
     clip_level: float = 0.99       # |x| >= this counts as a clipped sample
+    # Once a class has fired (streak >= persist) it stays on while its probability is >= this,
+    # instead of its threshold. Conversation scores 0.4-0.95 from step to step, so with speech's
+    # 0.8 threshold the label dropped out at every dip (box recording 2026-11-03, talkers a few
+    # feet away: shown 26% of the time in 7 pieces; with 0.5, 44% in 3). Entry is unchanged, so it
+    # starts no new fires: eval harness on the ADPCM chain identical in caught, wrong labels,
+    # false fires, overlap and OOV; speech steps showing the label +4%, all correct.
+    sustain: dict = field(default_factory=lambda: {"speech": 0.5})
 
     @classmethod
     def default(cls, **kw):
@@ -72,7 +79,7 @@ class DetectorParams:
     def baseline(cls, **kw):
         """demo/live_demo.py as of commit 5a426a8: 1 s RMS gate at -50 dB, 0.25 s hop, no veto."""
         base = dict(hop_s=0.25, gate_db=-50.0, gate_window_s=0.0, persist=2, other_veto=False,
-                    label_margin=0.0, loud_ref_db=-50.0)
+                    label_margin=0.0, loud_ref_db=-50.0, sustain={})
         base.update(kw)
         return cls(**base)
 
@@ -187,7 +194,10 @@ class Detector:
         other_top = self.i_other is not None and int(np.argmax(p)) == self.i_other
         hits = []
         for i, name in enumerate(self.names):
-            if name == "other" or p[i] < self.thr[i]:
+            thr = self.thr[i]
+            if self.streak[name] >= self.p.persist and name in self.p.sustain:
+                thr = min(thr, np.float32(self.p.sustain[name]))     # already on: stay on (sustain)
+            if name == "other" or p[i] < thr:
                 self.streak[name] = 0; continue
             if (self.p.other_veto and other_top
                     and CLASS_PRIORITY.get(name, 1) < self.p.veto_exempt_priority

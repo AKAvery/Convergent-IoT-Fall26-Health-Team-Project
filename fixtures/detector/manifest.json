@@ -31,7 +31,10 @@
    "loud_ref_db": -60.0,
    "loud_floor": 0.2,
    "input_gain_db": 0.0,
-   "clip_level": 0.99
+   "clip_level": 0.99,
+   "sustain": {
+    "speech": 0.5
+   }
   },
   "labels": [
    "alarm",
