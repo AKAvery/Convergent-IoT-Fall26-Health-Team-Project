@@ -30,9 +30,29 @@ inline int16_t peakToDbX10(int32_t peakAbs) {
   return x10 < PEAK_DB_X10_FLOOR ? PEAK_DB_X10_FLOOR : (int16_t)x10;
 }
 
+// DC blocker, y[n] = x[n] - x[n-1] + R*y[n-1] with R = 1 - 1/256 (-3 dB at ~10 Hz at 16 kHz).
+// The INMP441's output carries a DC offset that drifts at 1-2 Hz; measured on the front box it
+// was ~33 dB above the actual sound, so peaks and ADPCM audio were mostly offset. Runs on the
+// 24-bit sample with 8 fractional bits of state (integer only: the ESP32-C3 has no FPU).
+// Settles in ~16 ms, well inside MIC_WARMUP_MS.
+struct MicDcBlock {
+  int32_t x1 = 0;
+  int64_t acc = 0;   // y * 256
+  int32_t step(int32_t raw) {
+    int32_t x = raw >> 8;   // 24-bit sample
+    acc += ((int64_t)(x - x1) << 8) - (acc >> 8);
+    x1 = x;
+    int64_t y = acc >> 8;
+    if (y > 8388607) y = 8388607;
+    if (y < -8388608) y = -8388608;
+    return (int32_t)y * 256;   // back to left-aligned for micToInt16
+  }
+};
+
 // Read exactly `n` frames (blocking; the I2S clock paces the caller). Writes the mic slot as
-// int16 to `out` and raises `*otherPeakAbs` to the unused slot's peak magnitude.
+// int16 to `out` (DC removed) and raises `*otherPeakAbs` to the unused slot's peak magnitude.
 inline void micRead(int16_t* out, size_t n, int32_t* otherPeakAbs) {
+  static MicDcBlock dc;
   static int32_t rx[MIC_FRAMES_PER_DMA * 2];                // stereo frames: [slot0, slot1]
   size_t done = 0;
   while (done < n) {
@@ -42,7 +62,7 @@ inline void micRead(int16_t* out, size_t n, int32_t* otherPeakAbs) {
     i2s_read(MIC_I2S_PORT, rx, want * 2 * sizeof(int32_t), &bytes, portMAX_DELAY);
     size_t got = bytes / (2 * sizeof(int32_t));
     for (size_t i = 0; i < got; i++) {
-      out[done + i] = (int16_t)micToInt16(rx[2 * i + MIC_SLOT]);
+      out[done + i] = (int16_t)micToInt16(dc.step(rx[2 * i + MIC_SLOT]));
       int32_t o = micToInt16(rx[2 * i + (1 - MIC_SLOT)]);
       if (o < 0) o = -o;
       if (otherPeakAbs && o > *otherPeakAbs) *otherPeakAbs = o;
