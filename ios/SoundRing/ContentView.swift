@@ -1,38 +1,31 @@
 import SwiftUI
-import Models
 
+/// First launch: Welcome → (Create an account) setup → tabs. Signed in: straight to the tabs.
 struct ContentView: View {
-    // Placeholder data built from the shared Models contract.
-    private let events: [SoundEvent] = [
-        SoundEvent(label: .siren, confidence: 0.92, azimuthDeg: 90, levelDb: 18,
-                   startedAt: .now, updatedAt: .now, isActive: true, isUrgent: true,
-                   categories: [.safety]),
-        SoundEvent(label: .knock, confidence: 0.81, azimuthDeg: 270, levelDb: 9,
-                   startedAt: .now, updatedAt: .now, isActive: true, isUrgent: false,
-                   categories: [.privacy]),
-    ]
+    @AppStorage(SettingKey.hasOnboarded) private var hasOnboarded = false
+    @State private var showSetup = false
 
     var body: some View {
-        NavigationStack {
-            List(events) { event in
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(event.label.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)
-                            .font(.headline)
-                        if let az = event.azimuthDeg {
-                            Text("\(Int(az))° clockwise from ahead")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
+        appFlow
+            .preferredColorScheme(.dark)
+            .tint(Theme.accent)
+    }
+
+    @ViewBuilder
+    private var appFlow: some View {
+        Group {
+            if hasOnboarded {
+                MainTabsView()
+            } else {
+                WelcomeView(onSignIn: { hasOnboarded = true },
+                            onCreateAccount: { showSetup = true })
+                    .fullScreenCover(isPresented: $showSetup) {
+                        SetupFlowView(onFinish: {
+                            showSetup = false
+                            hasOnboarded = true
+                        }, onCancel: { showSetup = false })
                     }
-                    Spacer()
-                    if event.isUrgent {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                    }
-                }
             }
-            .navigationTitle("Sound Ring")
         }
     }
 }
