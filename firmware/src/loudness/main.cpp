@@ -38,10 +38,9 @@ void loop() {
   int32_t peak = 0, otherPeak = 0;
   bool clipped = false;
 
-  micRead(window, LEVEL_WINDOW_SAMPLES, &otherPeak);
+  micRead(window, LEVEL_WINDOW_SAMPLES, &otherPeak, &clipped);
   for (uint32_t i = 0; i < LEVEL_WINDOW_SAMPLES; i++) {
     int32_t s = window[i];
-    if (s >= 32767 || s <= -32768) clipped = true;
     int32_t a = s < 0 ? -s : s;
     if (a > peak) peak = a;
   }

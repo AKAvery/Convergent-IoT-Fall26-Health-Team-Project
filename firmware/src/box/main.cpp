@@ -1,7 +1,8 @@
 // box: the real sound box. INMP441 -> BLE, speaking the contract in docs/team-plan.md.
 //
 // - `level`  notifies at 10 Hz: peak dBFS x10 of the last 100 ms from the mic, flags bit0 =
-//            clipped. (bit1 = low battery is never set yet: there is no battery-voltage divider.)
+//            clipped (the mic hit its own rail or the limiter in mic_dsp.h turned the gain
+//            down). (bit1 = low battery is never set yet: there is no battery-voltage divider.)
 // - `audio`  after the phone writes `control` = 01: one 169-byte packet per 20 ms (50 Hz),
 //            320 samples IMA ADPCM (lib/ima_adpcm, matches ml/adpcm.py). On every START the
 //            encoder restarts at state (0, 0) and the audio seq at 0. `control` = 00 stops it.
@@ -87,10 +88,9 @@ void loop() {
   static bool clipped = false;
   static uint16_t levelSeq = 0;
 
-  micRead(block, adpcm::SAMPLES_PER_PACKET, &otherPeak);
+  micRead(block, adpcm::SAMPLES_PER_PACKET, &otherPeak, &clipped);
   for (size_t i = 0; i < adpcm::SAMPLES_PER_PACKET; i++) {
     int32_t s = block[i];
-    if (s >= 32767 || s <= -32768) clipped = true;
     int32_t a = s < 0 ? -s : s;
     if (a > peak) peak = a;
   }

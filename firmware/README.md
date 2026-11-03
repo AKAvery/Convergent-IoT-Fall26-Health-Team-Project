@@ -199,7 +199,7 @@ and the yellow user LED is GPIO21, active LOW. `box_config.h` picks the right se
   `MIC_GAIN_BITS` adds fixed digital gain in 6 dB steps and defaults to 0 (unity). There is no
   AGC. Keep it identical on all 4 boxes, and low enough that a car horn at 1 m doesn't clip.
 - Peak dBFS = 20·log10(|peak| / 32768) over each 1600-sample window. A window that is all
-  zeros reads −100.0. Clipped = any sample hit ±32767/−32768 (on an S3 the LED flashes).
+  zeros reads −100.0. Clipped = the mic hit its own rail or the limiter (`include/mic_dsp.h`) turned the gain down (on an S3 the LED flashes).
 - Output, one CSV line per 100 ms: `t_ms,peak_dbfs,clipped,other_slot_dbfs`.
   The firmware reads both I2S slots. With L/R on GND the mic should be in slot 0 and
   `other_slot_dbfs` should sit at about −100. **If the signal shows up in the last column
