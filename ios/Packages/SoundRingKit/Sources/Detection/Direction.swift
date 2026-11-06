@@ -24,6 +24,26 @@ public struct DirectionConfig: Sendable {
     /// on 2026-11-05 (boxes on chest and back, talker in front) single handling thumps and
     /// rumble peaks switched the stream 10 times in 30 s.
     public var switchAverageS = 1.0
+    /// After any switch, the slow (1 s average) rule waits this long before switching again, so
+    /// two talkers at about the same volume can't trade the stream back and forth. Like the
+    /// "last mic hold" in Jitsi's dominant-speaker code and broadcast automixers.
+    public var switchCooldownS = 1.5
+
+    // Fast lane for short sounds (knock, glass, bark: 0.1-0.5 s), which end before the slow rule
+    // could switch. A box switches at once when its newest level is ...
+    /// ... this far above the loudest it was in the `switchAverageS` before (newest
+    /// `onsetBaselineGapS` left out) ...
+    public var onsetJumpDb: Float = 10
+    public var onsetBaselineGapS = 0.15
+    /// ... this far above the streaming box's newest level ...
+    public var onsetLeadDb: Float = 6
+    /// ... and at least one other box also rose this much above the loudest it was. A sound in
+    /// the room reaches every box;
+    /// a handling thump only hits the box being touched.
+    public var onsetConfirmDb: Float = 3
+    /// After a fast switch, stay on that box this long (the sound plays out, then the slow rule
+    /// takes over again). Also caps fast switches at one per this long.
+    public var onsetLockS = 1.5
 
     public init() {}
 }
@@ -34,6 +54,8 @@ public struct DirectionTracker: Sendable {
     private var history: [BoxPosition: [(t: Double, db: Float)]] = [:]
     private var frozenQuiet: [BoxPosition: Float]?
     private var candidate: (box: BoxPosition, since: Double)?
+    private var lastSwitchT = -Double.infinity
+    private var lockedUntil = -Double.infinity
     public private(set) var streamingBox: BoxPosition?
 
     public init(config: DirectionConfig = DirectionConfig()) { self.config = config }
@@ -94,27 +116,62 @@ public struct DirectionTracker: Sendable {
         return Azimuth.normalized(atan2(sideways, forward) * 180 / .pi)
     }
 
-    /// The box that should stream audio. Switches only when another box's 1 s average has been
-    /// louder by `switchMarginDb` for `switchHoldS`, so the stream doesn't flip back and forth.
+    /// Newest level in dB above quiet, compared with the box's own previous second (newest
+    /// `onsetBaselineGapS` left out): how far above the loudest it was. A talker resuming after a
+    /// pause is not above their own last words; a knock is. nil if silent/stale.
+    func onset(_ box: BoxPosition, at t: Double) -> (now: Float, overMax: Float)? {
+        guard let h = history[box], let last = h.last, t - last.t <= config.staleS,
+              let quiet = quietLevel(box) else { return nil }
+        let now = max(0, last.db - quiet)
+        let before = h.filter { t - $0.t > config.onsetBaselineGapS && t - $0.t <= config.switchAverageS + config.onsetBaselineGapS }
+            .map { max(0, $0.db - quiet) }
+        guard let peak = before.max() else { return (now, 0) }
+        return (now, now - peak)
+    }
+
+    /// The box that should stream audio. Two lanes:
+    /// - Fast: a sudden sound (see `onsetJumpDb`) switches at once and holds for `onsetLockS`.
+    /// - Slow: another box's 1 s average louder by `switchMarginDb` for `switchHoldS`, and at
+    ///   least `switchCooldownS` since the last switch, so two talkers can't ping-pong it.
     /// Returns the new box when it changes.
     public mutating func updateStreamingBox(at t: Double) -> BoxPosition? {
         guard let (top, topDb) = BoxPosition.allCases.compactMap({ b in averageLoudness(b, at: t).map { (b, $0) } })
             .max(by: { $0.1 < $1.1 }) else { return nil }
-        guard let current = streamingBox else {
-            streamingBox = top
-            return top
+        guard let current = streamingBox else { return switchTo(top, at: t) }
+
+        if t >= lockedUntil, let box = suddenSound(current: current, at: t) {
+            let switched = switchTo(box, at: t)
+            lockedUntil = t + config.onsetLockS
+            return switched
         }
+        guard t >= lockedUntil else { return nil }
+
         let currentDb = averageLoudness(current, at: t)
         if top != current, currentDb == nil || topDb >= currentDb! + config.switchMarginDb {
             if candidate?.box != top { candidate = (top, t) }
-            if currentDb == nil || t - candidate!.since >= config.switchHoldS {
-                streamingBox = top
-                candidate = nil
-                return top
+            if currentDb == nil
+                || (t - candidate!.since >= config.switchHoldS && t - lastSwitchT >= config.switchCooldownS) {
+                return switchTo(top, at: t)
             }
         } else {
             candidate = nil
         }
         return nil
+    }
+
+    private func suddenSound(current: BoxPosition, at t: Double) -> BoxPosition? {
+        let o = Dictionary(uniqueKeysWithValues: BoxPosition.allCases.compactMap { b in onset(b, at: t).map { (b, $0) } })
+        let currentNow = o[current]?.now ?? 0
+        return o.filter { b, v in
+            b != current && v.overMax >= config.onsetJumpDb && v.now >= currentNow + config.onsetLeadDb
+                && o.contains { $0.key != b && $0.value.overMax >= config.onsetConfirmDb }
+        }.max { $0.value.now < $1.value.now }?.key
+    }
+
+    private mutating func switchTo(_ box: BoxPosition, at t: Double) -> BoxPosition {
+        streamingBox = box
+        candidate = nil
+        lastSwitchT = t
+        return box
     }
 }
