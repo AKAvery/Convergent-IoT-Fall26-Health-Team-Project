@@ -19,12 +19,16 @@ targets:
         product: Input
       - package: SoundRingKit
         product: Detection
+      - package: SoundRingKit
+        product: Names
     info:
       path: SoundRing/Info.plist
       properties:
         # The 4 body boxes stream audio over BLE; keep receiving it with the screen locked.
         NSBluetoothAlwaysUsageDescription: Halo connects to your pins over Bluetooth to hear the sounds around you.
         UIBackgroundModes: [bluetooth-central]
+        # Name alerts: Apple's on-device speech-to-text on the pins' audio (nothing leaves the phone).
+        NSSpeechRecognitionUsageDescription: Halo listens for your name in what your pins hear, on this iPhone only.
     settings:
       base:
         SWIFT_VERSION: "6.0"
@@ -34,6 +38,10 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         PRODUCT_BUNDLE_IDENTIFIER: edu.utexas.convergent.soundring
         CODE_SIGN_STYLE: Automatic
+        # The generated Info.plist takes CFBundleVersion from these; without them installing on a
+        # device (or "My Mac (Designed for iPad)") fails with "does not contain CFBundleVersion".
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: ""   # no app icon in the designs yet
   # Watch app (design-refs/Watch_45mm.png). Shares SoundRing/Shared with the iPhone app.
   # Not embedded in the iPhone app yet: embedding makes Xcode require the watchOS runtime just to

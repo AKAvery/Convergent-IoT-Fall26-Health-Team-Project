@@ -10,6 +10,10 @@ enum SettingKey {
     static let profileName = "profileName"
     static let profileBio = "profileBio"
     static let profileTheme = "profileTheme"
+    static let nameAlerts = "nameAlerts"       // Bool, default on
+    static let nameList = "nameList"           // "Avery, Ave": names that trigger a name alert
+    static let demoRecording = "demoRecording" // WAV in Documents to replay instead of the pins (demos)
+    static let logTranscripts = "logTranscripts" // developer: log name-alert transcripts (off)
 
     /// "Sounds to detect" toggle for one group.
     static func detect(_ group: CueGroup) -> String { "detect.\(group.rawValue)" }

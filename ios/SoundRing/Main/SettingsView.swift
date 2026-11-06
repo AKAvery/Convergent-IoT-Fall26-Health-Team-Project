@@ -33,6 +33,8 @@ struct SettingsView: View {
                 }
                 .card()
 
+                NameAlertsCard()
+
                 Text("Alerts & Feedback").foregroundStyle(Theme.secondaryText).padding(.top, 8)
                 VStack(spacing: 0) {
                     slider("Alert sensitivity", value: $alert).padding(16)
@@ -50,7 +52,7 @@ struct SettingsView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.background)
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.text)
         .toolbar(.hidden, for: .navigationBar)
     }
 

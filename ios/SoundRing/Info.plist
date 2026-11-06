@@ -20,6 +20,8 @@
 	<string>1</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Halo connects to your pins over Bluetooth to hear the sounds around you.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Halo listens for your name in what your pins hear, on this iPhone only.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>

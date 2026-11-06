@@ -23,6 +23,7 @@ let package = Package(
         .library(name: "Input", targets: ["Input"]),
         .library(name: "Detection", targets: ["Detection"]),
         .library(name: "Cloud", targets: ["Cloud"]),
+        .library(name: "Names", targets: ["Names"]),
         .executable(name: "soundring-listen", targets: ["SoundRingListen"]),
     ],
     targets: [
@@ -32,10 +33,13 @@ let package = Package(
         .target(name: "Detection", dependencies: detectionDeps,  // Lane 2
                 resources: [.copy("Resources/Models"), .process("Resources/categories.json")]),
         .target(name: "Cloud", dependencies: ["Models"]),      // Lane 3
+        // "Someone said your name": Apple's on-device speech-to-text on the box audio (iOS 26+).
+        .target(name: "Names"),
         // Mac tool: the real boxes over CoreBluetooth through the same Input code as the app.
-        .executableTarget(name: "SoundRingListen", dependencies: ["Models", "Input", "Detection"]),
+        .executableTarget(name: "SoundRingListen", dependencies: ["Models", "Input", "Detection", "Names"]),
         .testTarget(name: "ModelsTests", dependencies: ["Models"]),
         .testTarget(name: "InputTests", dependencies: ["Models", "Input"]),
         .testTarget(name: "DetectionTests", dependencies: ["Models", "Input", "Detection"]),
+        .testTarget(name: "NamesTests", dependencies: ["Names", "Input"]),
     ] + extraTargets
 )
