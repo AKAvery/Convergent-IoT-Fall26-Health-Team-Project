@@ -43,7 +43,7 @@ struct PinsView: View {
         .padding(.top, 12)
         .padding(.bottom, 20)
         .background(Theme.background)
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.text)
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $profileTab) { ProfileView(initialTab: $0) }
         .onAppear { session.start() }

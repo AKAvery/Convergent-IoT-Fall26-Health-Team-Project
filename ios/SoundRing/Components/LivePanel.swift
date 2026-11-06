@@ -41,7 +41,7 @@ struct LivePanel: View {
                         Image(systemName: "chevron.down").font(.caption2.bold())
                     }
                     .font((compact ? Font.caption : .subheadline).weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background(Capsule().fill(Theme.surfaceRaised))
                 }

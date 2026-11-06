@@ -70,7 +70,7 @@ struct HomeView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.background)
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.text)
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $profileTab) { ProfileView(initialTab: $0) }
     }

@@ -13,7 +13,7 @@ struct PrimaryButton: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .background(RoundedRectangle(cornerRadius: 16).fill(Theme.accent))
-                .foregroundStyle(Theme.background)
+                .foregroundStyle(Theme.onAccent)
         }
         .buttonStyle(.plain)
     }
@@ -31,7 +31,7 @@ struct SecondaryButton: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .background(RoundedRectangle(cornerRadius: 16).fill(Theme.surfaceRaised))
-                .foregroundStyle(dimmed ? Theme.secondaryText : .white)
+                .foregroundStyle(dimmed ? Theme.secondaryText : Theme.text)
         }
         .buttonStyle(.plain)
     }
@@ -83,7 +83,7 @@ struct StepHeader: View {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
                     .frame(width: 36, height: 36)
                     .background(Circle().fill(Theme.surfaceRaised))
             }

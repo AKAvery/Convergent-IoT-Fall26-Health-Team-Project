@@ -32,7 +32,7 @@ struct ProfileView: View {
                                 .frame(maxWidth: .infinity, minHeight: 36)
                                 .background(Capsule().fill(t == current ? Theme.accent : .clear))
                                 .overlay(Capsule().stroke(t == current ? .clear : Theme.secondaryText.opacity(0.6)))
-                                .foregroundStyle(t == current ? Theme.background : Theme.secondaryText)
+                                .foregroundStyle(t == current ? Theme.onAccent : Theme.secondaryText)
                         }
                         .buttonStyle(.plain)
                     }
@@ -48,7 +48,7 @@ struct ProfileView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.background)
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.text)
         .ignoresSafeArea(edges: .top)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -77,7 +77,7 @@ struct ProfileView: View {
                         .accessibilityLabel("Profile photo")
                     Image(systemName: "camera.fill")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.background)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(Theme.accent))
                         .overlay(Circle().stroke(Theme.background, lineWidth: 3))
@@ -129,7 +129,7 @@ struct ProfileFeed: View {
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accentDim))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.text)
     }
 }
 
@@ -180,7 +180,7 @@ struct ProfileEdit: View {
     private func field(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.subheadline).foregroundStyle(Theme.secondaryText)
-            content()
+            content().tint(Theme.accent)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

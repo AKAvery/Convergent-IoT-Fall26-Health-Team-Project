@@ -110,7 +110,7 @@ struct CueChip: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(cue.title)
                     .font(.system(size: compact ? 8 : 12, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
                 Text(cue.detail(showDistance: showDistance))
                     .font(.system(size: compact ? 6 : 9))
                     .foregroundStyle(Theme.secondaryText)

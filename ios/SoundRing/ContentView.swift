@@ -6,8 +6,7 @@ struct ContentView: View {
     @State private var showSetup = false
 
     var body: some View {
-        appFlow
-            .preferredColorScheme(.dark)
+        Group { if let n = ZZShot.screen { ZZShot.view(n) } else { appFlow } }
             .tint(Theme.accent)
     }
 

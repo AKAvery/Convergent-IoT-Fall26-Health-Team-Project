@@ -33,7 +33,7 @@ struct SetupFlowView: View {
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.background)
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.text)
         .animation(.easeInOut(duration: 0.25), value: current)
     }
 }
@@ -76,7 +76,7 @@ struct FindPinsStep: View {
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(Capsule().fill(i == 0 ? Theme.accent : .clear))
                             .overlay(Capsule().stroke(Theme.accent))
-                            .foregroundStyle(i == 0 ? Theme.background : Theme.accent)
+                            .foregroundStyle(i == 0 ? Theme.onAccent : Theme.accent)
                             .buttonStyle(.plain)
                     }
                     .padding(12)
@@ -294,7 +294,7 @@ private struct AlignRing: View {
                         .position(c)
                     Image(systemName: state == 2 ? "checkmark" : "mic")
                         .font(.headline)
-                        .foregroundStyle(state == 1 ? Theme.background : state == 2 ? Theme.background : Theme.secondaryText)
+                        .foregroundStyle(state > 0 ? Theme.onAccent : Theme.secondaryText)
                         .position(CueDirection.point(c, radius, side.azimuthDeg))
                 }
                 Image(systemName: "figure.stand")

@@ -66,7 +66,7 @@ struct LiveView: View {
                             .padding(.horizontal, 16).padding(.vertical, 10)
                             .background(Capsule().fill(filter == f ? Theme.accent : .clear))
                             .overlay(Capsule().stroke(filter == f ? .clear : Theme.line))
-                            .foregroundStyle(filter == f ? Theme.background : Theme.secondaryText)
+                            .foregroundStyle(filter == f ? Theme.onAccent : Theme.secondaryText)
                     }
                 }
                 .buttonStyle(.plain)
@@ -79,7 +79,7 @@ struct LiveView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.background)
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.text)
         .toolbar(.hidden, for: .navigationBar)
         .task { await model.listen(to: source) }
     }

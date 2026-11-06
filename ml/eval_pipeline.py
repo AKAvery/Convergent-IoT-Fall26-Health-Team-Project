@@ -528,6 +528,56 @@ def compare(base, new):
 
 
 # --------------------------------------------------------------- playback --
+class _Duplex:
+    """One full-duplex stream kept open for the whole session.
+
+    sd.playrec / sd.rec open and stop a CoreAudio stream per call, and on macOS the stop
+    occasionally deadlocks inside PortAudio (AudioOutputUnitStop waiting on a CoreAudio mutex),
+    which froze whole --playback runs after the first clip. Opening the stream once and feeding
+    clips through its callback avoids the stop until the end.
+    """
+
+    def __init__(self, sd, sr):
+        import threading
+        self.sd, self.sr, self.job = sd, sr, None
+        self._lock = threading.Lock()
+        self.stream = sd.Stream(samplerate=sr, channels=1, dtype="float32", callback=self._cb)
+        self.stream.start()
+        self.run(np.zeros(sr // 2, dtype=np.float32))  # warm-up: the first blocks after start are junk
+
+    def _cb(self, indata, outdata, frames, time_info, status):
+        job = self.job
+        if job is None:
+            outdata.fill(0); return
+        out, rec, done = job["out"], job["rec"], job["done"]
+        pos = job["pos"]; k = min(frames, len(out) - pos)
+        rec[pos:pos + k] = indata[:k, 0]
+        outdata[:k, 0] = out[pos:pos + k]
+        if k < frames:
+            outdata[k:, 0] = 0
+        job["pos"] = pos + k
+        if job["pos"] >= len(out):
+            self.job = None
+            done.set()
+
+    def run(self, out):
+        """Play `out` (float32 mono at self.sr) and return what the mic recorded meanwhile."""
+        import threading
+        out = np.ascontiguousarray(out, dtype=np.float32)
+        job = {"out": out, "rec": np.zeros(len(out), dtype=np.float32), "pos": 0, "done": threading.Event()}
+        self.job = job
+        if not job["done"].wait(timeout=len(out) / self.sr + 5.0):
+            self.job = None
+            print(f"  playback stalled after {job['pos']}/{len(out)} samples; scoring the partial recording")
+        return job["rec"]
+
+    def close(self):
+        try:
+            self.stream.stop(); self.stream.close()
+        except Exception:
+            pass
+
+
 def playback(params, args):
     """Play test clips through the speakers at several volumes while recording the mic; score the recording."""
     try:
@@ -555,7 +605,8 @@ def playback(params, args):
     print(f"{len(picks)} clips x {len(volumes)} volumes ~ {total_s / 60:.1f} min. Set the Mac volume where you normally test, "
           f"then stay quiet.")
     input("Enter to measure the room noise floor (2 s) and start... ")
-    noise = sd.rec(int(2 * play_sr), samplerate=play_sr, channels=1, dtype="float32", blocking=True)[:, 0]
+    dup = _Duplex(sd, play_sr)
+    noise = dup.run(np.zeros(int(2 * play_sr), dtype=np.float32))
     print(f"room floor: {dbfs(np.sqrt(np.mean(noise ** 2))):.0f} dBFS RMS, peak {dbfs(np.abs(noise).max()):.0f} dBFS")
     res = {v: {"scores": defaultdict(list), "peak": [], "clip": []} for v in volumes}
     lines = [f"# Playback evaluation ({params.describe()})\n",
@@ -566,7 +617,7 @@ def playback(params, args):
         for v in volumes:
             sig = np.concatenate([np.zeros(SAMPLE_RATE), clip * v, np.zeros(SAMPLE_RATE)]).astype(np.float32)
             out = sig if play_sr == SAMPLE_RATE else resampy.resample(sig, SAMPLE_RATE, play_sr).astype(np.float32)
-            rec = sd.playrec(out[:, None], samplerate=play_sr, channels=1, dtype="float32", blocking=True)[:, 0]
+            rec = dup.run(out)
             if play_sr != SAMPLE_RATE:
                 rec = resampy.resample(rec, play_sr, SAMPLE_RATE)
             rec = np.nan_to_num(rec).astype(np.float32)
@@ -594,6 +645,7 @@ def playback(params, args):
         lines.append(f"| {lab} | " + " | ".join(
             f"{np.mean([s['caught'] for s in res[v]['scores'][lab]]):.2f} / {np.mean([bool(s['wrong']) for s in res[v]['scores'][lab]]):.2f}"
             for v in volumes) + " |")
+    dup.close()
     text = "\n".join(lines) + "\n"
     out = WORK_DIR / f"eval_playback_{args.params}.md"
     out.write_text(text); print(text); print(f"-> {out}")
