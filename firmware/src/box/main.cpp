@@ -1,6 +1,7 @@
 // box: the real sound box. INMP441 -> BLE, speaking the contract in docs/team-plan.md.
 //
-// - `level`  notifies at 10 Hz: peak dBFS x10 of the last 100 ms from the mic, flags bit0 =
+// - `level`  notifies at 10 Hz: peak dBFS x10 of the last 100 ms from the mic above 300 Hz
+//            (LevelHighPass in mic_dsp.h: rumble and handling noise would pick the wrong box), flags bit0 =
 //            clipped (the mic hit its own rail or the limiter in mic_dsp.h turned the gain
 //            down). (bit1 = low battery is never set yet: there is no battery-voltage divider.)
 // - `audio`  after the phone writes `control` = 01: one 169-byte packet per 20 ms (50 Hz),
@@ -23,6 +24,7 @@ static_assert(LEVEL_WINDOW_SAMPLES % adpcm::SAMPLES_PER_PACKET == 0, "level wind
 static constexpr uint32_t BLOCKS_PER_LEVEL = LEVEL_WINDOW_SAMPLES / adpcm::SAMPLES_PER_PACKET;   // 5
 
 static int16_t block[adpcm::SAMPLES_PER_PACKET];   // 20 ms of mic samples
+static micdsp::LevelHighPass levelFilter;           // for `level` only; the audio is unfiltered
 static uint8_t audioPkt[AUDIO_LEN];
 
 // Audio stream state (only touched from loop()).
@@ -90,7 +92,7 @@ void loop() {
 
   micRead(block, adpcm::SAMPLES_PER_PACKET, &otherPeak, &clipped);
   for (size_t i = 0; i < adpcm::SAMPLES_PER_PACKET; i++) {
-    int32_t s = block[i];
+    int32_t s = levelFilter.step(block[i]);
     int32_t a = s < 0 ? -s : s;
     if (a > peak) peak = a;
   }

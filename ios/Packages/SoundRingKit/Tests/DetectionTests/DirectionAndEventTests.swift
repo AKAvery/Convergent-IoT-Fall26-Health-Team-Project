@@ -44,7 +44,7 @@ import Models
         #expect(one.azimuth(at: 0.1) == nil)
     }
 
-    /// Switches only after another box is 3 dB louder for 0.3 s.
+    /// Switches only after another box's 1 s average is 3 dB louder for 0.5 s.
     @Test func streamingBoxHysteresis() {
         var d = DirectionTracker()
         func feed(_ t: Double, front: Float, back: Float) -> BoxPosition? {
@@ -56,18 +56,52 @@ import Models
         #expect(feed(0.1, front: -50, back: -60) == nil)
         // BACK louder by 2 dB: not enough
         for t in stride(from: 1.0, to: 2.0, by: 0.1) { #expect(feed(t, front: -50, back: -48) == nil) }
-        // BACK louder by 6 dB: switches after 0.3 s, not before. (Peak hold keeps FRONT's -50 for
-        // 0.3 s after it drops, so FRONT stays loud here on purpose.)
+        // BACK louder by 6 dB from t = 2 (it was already 2 dB louder): the 1 s average gap passes
+        // 3 dB at 2.2 s, then the 0.5 s hold: switches at 2.7 s.
         var switched: Double?
-        for t in stride(from: 2.0, to: 3.0, by: 0.1) where switched == nil {
+        for t in stride(from: 2.0, to: 4.0, by: 0.1) where switched == nil {
             if feed(t, front: -50, back: -44) == .back { switched = t }
         }
-        #expect(switched != nil && switched! >= 2.3 - 1e-9)
+        #expect(switched != nil && abs(switched! - 2.7) < 0.05, "\(switched ?? -1)")
+    }
+
+    /// One loud thump on the other box (handling noise) doesn't move the stream.
+    @Test func streamingBoxIgnoresAThump() {
+        var d = DirectionTracker()
+        func feed(_ t: Double, front: Float, back: Float) -> BoxPosition? {
+            d.add(BoxLevel(box: .front, seq: 0, receivedAt: Date(), peakDbfs: front, clipped: false), at: t)
+            d.add(BoxLevel(box: .back, seq: 0, receivedAt: Date(), peakDbfs: back, clipped: false), at: t)
+            return d.updateStreamingBox(at: t)
+        }
+        #expect(feed(0.0, front: -60, back: -60) == .front)
+        for t in stride(from: 0.1, to: 3.0, by: 0.1) {
+            let thump = t > 1.45 && t < 1.75             // 0.3 s, 20 dB louder at the back
+            #expect(feed(t, front: -45, back: thump ? -25 : -50) == nil, "t \(t)")
+        }
     }
 }
 
 @Suite struct EventTrackerTests {
     private func rules() throws -> LabelRules { try LabelRules.bundled() }
+
+    /// After a talker stops, the detector still reports speech for ~1 s while the boxes hear only
+    /// room noise: that tail must not move the arrow.
+    @Test func directionIgnoresTheQuietTail() throws {
+        var tr = EventTracker(rules: try rules())
+        let t0 = Date()
+        let speech = [Hit(label: "speech", conf: 0.9, score: 0.9)]
+        for k in 0..<10 {                                   // talking in front, 20 dB above quiet
+            _ = tr.update(hits: speech, azimuth: 0, levelDb: 20, now: t0.addingTimeInterval(Double(k) * 0.1))
+        }
+        for k in 10..<18 {                                  // stopped: noise at 4 dB, random "behind"
+            _ = tr.update(hits: speech, azimuth: 180, levelDb: 4, now: t0.addingTimeInterval(Double(k) * 0.1))
+        }
+        #expect(tr.snapshot.first?.azimuthDeg == 0)
+        for k in 18..<22 {                                  // loud again from the right: follows it
+            _ = tr.update(hits: speech, azimuth: 90, levelDb: 18, now: t0.addingTimeInterval(Double(k) * 0.1))
+        }
+        #expect(tr.snapshot.first?.azimuthDeg == 90)
+    }
 
     @Test func startUpdateStop() throws {
         var tr = EventTracker(rules: try rules())

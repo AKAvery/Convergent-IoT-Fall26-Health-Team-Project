@@ -80,11 +80,38 @@ void test_limiter_lets_go_after_a_peak() {
   for (size_t i = 0; i < CHUNK; i++) TEST_ASSERT_EQUAL_INT16((int16_t)(prev[i] >> 8), out[i]);
 }
 
+// Peak of a sine through LevelHighPass, after it settles, in dB relative to the input peak.
+static double hpGainDb(double hz) {
+  LevelHighPass hp;
+  int32_t peak = 0;
+  const int32_t amp = 10000;
+  for (int i = 0; i < 16000; i++) {
+    int32_t x = (int32_t)(amp * __builtin_sin(2 * 3.14159265358979 * hz * i / 16000.0));
+    int32_t y = hp.step(x);
+    if (i >= 8000) { int32_t a = y < 0 ? -y : y; if (a > peak) peak = a; }
+  }
+  return 20 * __builtin_log10((double)peak / amp);
+}
+
+void test_level_high_pass() {
+  // (Unity is built without double support here, so plain comparisons.)
+  TEST_ASSERT_TRUE(hpGainDb(2000) > -0.5 && hpGainDb(2000) < 0.5);   // speech, sirens, alarms: untouched
+  TEST_ASSERT_TRUE(hpGainDb(1000) > -0.5 && hpGainDb(1000) < 0.5);
+  TEST_ASSERT_TRUE(hpGainDb(300) > -3.5 && hpGainDb(300) < -2.5);    // the corner
+  TEST_ASSERT_TRUE(hpGainDb(100) < -18);                  // rumble / handling: 12 dB per octave down
+  TEST_ASSERT_TRUE(hpGainDb(50) < -30);
+  LevelHighPass hp;                                      // DC: integer rounding leaves < -40 dB
+  int32_t y = 0;
+  for (int i = 0; i < 16000; i++) y = hp.step(20000);
+  TEST_ASSERT_INT32_WITHIN(200, 0, y);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_dc_block_removes_offset);
   RUN_TEST(test_limiter_is_exact_below_ceiling);
   RUN_TEST(test_limiter_never_reaches_rails);
   RUN_TEST(test_limiter_lets_go_after_a_peak);
+  RUN_TEST(test_level_high_pass);
   return UNITY_END();
 }

@@ -35,6 +35,26 @@ struct DcBlock {
   }
 };
 
+// High-pass for the `level` meter only (the audio stream is not filtered): 2nd-order Butterworth
+// at 300 Hz, Q14 coefficients, direct form I. Why: measured live 2026-11-05 with one box on the
+// chest and one on the back, the raw peak level was dominated by low rumble and handling thumps,
+// which wrap around the body almost unshadowed, so the phone kept switching between front and
+// back while the talker stayed in front. The body's shadow is in the speech band and above.
+struct LevelHighPass {
+  // (Not B0/B1/B2: Arduino's binary.h defines those as macros.)
+  static constexpr int32_t KB0 = 15074, KB1 = -2 * KB0, KB2 = KB0;   // b sums to 0
+  static constexpr int32_t KA1 = -30044, KA2 = 13870;
+  int32_t x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  int32_t step(int32_t x) {
+    int64_t acc = (int64_t)KB0 * x + (int64_t)KB1 * x1 + (int64_t)KB2 * x2
+                - (int64_t)KA1 * y1 - (int64_t)KA2 * y2;
+    int32_t y = (int32_t)(acc >> 14);
+    x2 = x1; x1 = x;
+    y2 = y1; y1 = y;
+    return y;
+  }
+};
+
 // Look-ahead peak limiter on whole chunks. Chunk k is output when chunk k+1 arrives, with a gain
 // that ramps linearly across the chunk from g[k-1] to g[k], where
 //   g[k] = min(1, C / peak[k], C / peak[k+1], 2 * g[k-1])

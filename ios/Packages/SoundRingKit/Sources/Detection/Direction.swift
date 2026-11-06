@@ -15,10 +15,15 @@ public struct DirectionConfig: Sendable {
     public var minLoudnessDb: Float = 3
     /// A box with no `level` for this long is ignored.
     public var staleS = 1.0
-    /// Switch the audio stream when another box is louder by this much ...
+    /// Switch the audio stream when another box's average loudness over `switchAverageS` is
+    /// louder by this much ...
     public var switchMarginDb: Float = 3
     /// ... for this long.
-    public var switchHoldS = 0.3
+    public var switchHoldS = 0.5
+    /// The audio-stream choice uses each box's average over this long, not the 0.3 s peak: live
+    /// on 2026-11-05 (boxes on chest and back, talker in front) single handling thumps and
+    /// rumble peaks switched the stream 10 times in 30 s.
+    public var switchAverageS = 1.0
 
     public init() {}
 }
@@ -67,6 +72,14 @@ public struct DirectionTracker: Sendable {
         BoxPosition.allCases.compactMap { b in loudness(b, at: t).map { (b, $0) } }.max { $0.1 < $1.1 }
     }
 
+    /// dB above the box's quiet level, averaged over `switchAverageS`; nil if silent or stale.
+    public func averageLoudness(_ box: BoxPosition, at t: Double) -> Float? {
+        guard let h = history[box], let last = h.last, t - last.t <= config.staleS,
+              let quiet = quietLevel(box) else { return nil }
+        let recent = h.reversed().prefix { t - $0.t <= config.switchAverageS }.map { max(0, $0.db - quiet) }
+        return recent.isEmpty ? nil : recent.reduce(0, +) / Float(recent.count)
+    }
+
     /// Azimuth in the team convention, or nil when no box is clearly above its quiet level or
     /// only one box is reporting (one box can't tell direction).
     public func azimuth(at t: Double) -> Float? {
@@ -81,16 +94,17 @@ public struct DirectionTracker: Sendable {
         return Azimuth.normalized(atan2(sideways, forward) * 180 / .pi)
     }
 
-    /// The box that should stream audio. Switches only when another box has been louder by
-    /// `switchMarginDb` for `switchHoldS`, so the stream doesn't flip back and forth. Returns the
-    /// new box when it changes.
+    /// The box that should stream audio. Switches only when another box's 1 s average has been
+    /// louder by `switchMarginDb` for `switchHoldS`, so the stream doesn't flip back and forth.
+    /// Returns the new box when it changes.
     public mutating func updateStreamingBox(at t: Double) -> BoxPosition? {
-        guard let (top, topDb) = loudestBox(at: t) else { return nil }
+        guard let (top, topDb) = BoxPosition.allCases.compactMap({ b in averageLoudness(b, at: t).map { (b, $0) } })
+            .max(by: { $0.1 < $1.1 }) else { return nil }
         guard let current = streamingBox else {
             streamingBox = top
             return top
         }
-        let currentDb = loudness(current, at: t)
+        let currentDb = averageLoudness(current, at: t)
         if top != current, currentDb == nil || topDb >= currentDb! + config.switchMarginDb {
             if candidate?.box != top { candidate = (top, t) }
             if currentDb == nil || t - candidate!.since >= config.switchHoldS {
