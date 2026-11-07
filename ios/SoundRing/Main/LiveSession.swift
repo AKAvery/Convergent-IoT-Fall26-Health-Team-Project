@@ -1,3 +1,4 @@
+import Cloud
 import Detection
 import Foundation
 import Input
@@ -56,6 +57,14 @@ final class LiveSession {
         #endif
     }
 
+    /// Firebase history: each sound is saved once, after it stops. Firestore queues it if offline.
+    private var saved: Set<UUID> = []
+    private func saveFinished(_ snapshot: [SoundEvent]) {
+        for e in snapshot where !e.isActive && saved.insert(e.id).inserted {
+            Task { await CloudStore.shared.saveEvent(e) }
+        }
+    }
+
     func start() {
         guard !running else { return }
         do {
@@ -84,7 +93,10 @@ final class LiveSession {
             let engine = DetectionEngine(source: source, classifier: classifier, rules: rules)
             tasks.append(Task.detached { await engine.run() })
             tasks.append(Task { [weak self] in
-                for await snapshot in engine.activeEvents { self?.events = snapshot }
+                for await snapshot in engine.activeEvents {
+                    self?.events = snapshot
+                    self?.saveFinished(snapshot)
+                }
             })
             let names = nameFeed
             tasks.append(Task { [weak self] in

@@ -26,13 +26,21 @@ let package = Package(
         .library(name: "Names", targets: ["Names"]),
         .executable(name: "soundring-listen", targets: ["SoundRingListen"]),
     ],
+    dependencies: [
+        // Lane 3: Auth + Firestore only (Spark plan). No Storage or Functions, which need Blaze.
+        .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "11.0.0"),
+    ],
     targets: [
         // The contracts. Changes need all three software owners to approve.
         .target(name: "Models"),
         .target(name: "Input", dependencies: ["Models"]),      // Lane 1
         .target(name: "Detection", dependencies: detectionDeps,  // Lane 2
                 resources: [.copy("Resources/Models"), .process("Resources/categories.json")]),
-        .target(name: "Cloud", dependencies: ["Models"]),      // Lane 3
+        .target(name: "Cloud", dependencies: [                 // Lane 3
+            "Models",
+            .product(name: "FirebaseAuth", package: "firebase-ios-sdk"),
+            .product(name: "FirebaseFirestore", package: "firebase-ios-sdk"),
+        ]),
         // "Someone said your name": Apple's on-device speech-to-text on the box audio (iOS 26+).
         .target(name: "Names"),
         // Mac tool: the real boxes over CoreBluetooth through the same Input code as the app.
