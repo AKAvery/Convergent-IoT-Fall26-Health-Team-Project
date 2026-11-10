@@ -24,6 +24,10 @@ public struct DirectionConfig: Sendable {
     /// on 2026-11-05 (boxes on chest and back, talker in front) single handling thumps and
     /// rumble peaks switched the stream 10 times in 30 s.
     public var switchAverageS = 1.0
+    /// After any switch, wait this long before switching again, so two talkers at about the same
+    /// volume can't trade the stream back and forth. Like the "last mic hold" in Jitsi's
+    /// dominant-speaker code and broadcast automixers.
+    public var switchCooldownS = 1.5
 
     public init() {}
 }
@@ -34,6 +38,7 @@ public struct DirectionTracker: Sendable {
     private var history: [BoxPosition: [(t: Double, db: Float)]] = [:]
     private var frozenQuiet: [BoxPosition: Float]?
     private var candidate: (box: BoxPosition, since: Double)?
+    private var lastSwitchT = -Double.infinity
     public private(set) var streamingBox: BoxPosition?
 
     public init(config: DirectionConfig = DirectionConfig()) { self.config = config }
@@ -95,26 +100,31 @@ public struct DirectionTracker: Sendable {
     }
 
     /// The box that should stream audio. Switches only when another box's 1 s average has been
-    /// louder by `switchMarginDb` for `switchHoldS`, so the stream doesn't flip back and forth.
+    /// louder by `switchMarginDb` for `switchHoldS`, and at least `switchCooldownS` after the last
+    /// switch, so the stream doesn't flip back and forth.
     /// Returns the new box when it changes.
     public mutating func updateStreamingBox(at t: Double) -> BoxPosition? {
         guard let (top, topDb) = BoxPosition.allCases.compactMap({ b in averageLoudness(b, at: t).map { (b, $0) } })
             .max(by: { $0.1 < $1.1 }) else { return nil }
-        guard let current = streamingBox else {
-            streamingBox = top
-            return top
-        }
+        guard let current = streamingBox else { return switchTo(top, at: t) }
+
         let currentDb = averageLoudness(current, at: t)
         if top != current, currentDb == nil || topDb >= currentDb! + config.switchMarginDb {
             if candidate?.box != top { candidate = (top, t) }
-            if currentDb == nil || t - candidate!.since >= config.switchHoldS {
-                streamingBox = top
-                candidate = nil
-                return top
+            if currentDb == nil
+                || (t - candidate!.since >= config.switchHoldS && t - lastSwitchT >= config.switchCooldownS) {
+                return switchTo(top, at: t)
             }
         } else {
             candidate = nil
         }
         return nil
+    }
+
+    private mutating func switchTo(_ box: BoxPosition, at t: Double) -> BoxPosition {
+        streamingBox = box
+        candidate = nil
+        lastSwitchT = t
+        return box
     }
 }
