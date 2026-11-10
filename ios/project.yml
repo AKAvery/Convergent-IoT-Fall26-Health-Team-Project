@@ -58,5 +58,12 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Halo
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: edu.utexas.convergent.soundring
+        # Single-target SwiftUI watch app that installs and runs without the iPhone app embedding it.
+        INFOPLIST_KEY_WKApplication: YES
+        INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: YES
         PRODUCT_BUNDLE_IDENTIFIER: edu.utexas.convergent.soundring.watchkitapp
         CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "4"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
