@@ -277,7 +277,7 @@ extension SoundCue {
         default: .ambient
         }
         self.init(id: e.id.uuidString, title: look.title,
-                  kind: e.label == .speech ? "Voice" : nil, symbol: look.symbol, group: group,
+                  kind: e.label == .speech ? "Voice" : nil, symbol: look.symbol, group: group, label: e.label,
                   azimuthDeg: Double(e.azimuthDeg ?? 0),
                   directionText: e.azimuthDeg == nil ? "Direction unclear" : nil)
     }

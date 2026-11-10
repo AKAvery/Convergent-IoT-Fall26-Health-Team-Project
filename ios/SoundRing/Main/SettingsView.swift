@@ -1,3 +1,5 @@
+import Combine
+import Models
 import SwiftUI
 
 /// design-refs/Settings.png. Every control is saved; "Sounds to detect" and "Show distance
@@ -11,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(SettingKey.detect(.traffic)) private var detectTraffic = true
     @AppStorage(SettingKey.detect(.speech)) private var detectSpeech = true
     @AppStorage(SettingKey.detect(.ambient)) private var detectAmbient = true
+    @AppStorage(SettingKey.mutedSounds) private var mutedSounds = ""
 
     var body: some View {
         ScrollView {
@@ -33,6 +36,17 @@ struct SettingsView: View {
                 }
                 .card()
 
+                Text("Filter sounds").foregroundStyle(Theme.secondaryText).padding(.top, 8)
+                VStack(spacing: 0) {
+                    ForEach(Array(SoundLabel.allCases.enumerated()), id: \.element) { i, label in
+                        if i > 0 { Divider().overlay(Theme.line) }
+                        soundToggle(label)
+                    }
+                }
+                .card()
+                Text("Turn a sound off to hide it from the Live view. Muting safety sounds (siren, alarm, glass breaking, car horn) means you won't see them.")
+                    .font(.footnote).foregroundStyle(Theme.secondaryText)
+
                 NameAlertsCard()
 
                 Text("Alerts & Feedback").foregroundStyle(Theme.secondaryText).padding(.top, 8)
@@ -54,6 +68,31 @@ struct SettingsView: View {
         .background(Theme.background)
         .foregroundStyle(Theme.text)
         .toolbar(.hidden, for: .navigationBar)
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .debounce(for: .seconds(1), scheduler: DispatchQueue.main)) { _ in SettingsSync.push() }
+        .onDisappear { SettingsSync.push() }
+    }
+
+    /// On = this sound shows up; off = it's muted.
+    private func soundToggle(_ label: SoundLabel) -> some View {
+        let look = SoundCue.look[label] ?? (title: "Sound", symbol: "waveform")
+        let isOn = Binding<Bool>(
+            get: { !MutedSounds.parse(mutedSounds).contains(label) },
+            set: { on in
+                var muted = MutedSounds.parse(mutedSounds)
+                if on { muted.remove(label) } else { muted.insert(label) }
+                mutedSounds = MutedSounds.serialize(muted)
+            })
+        return Toggle(isOn: isOn) {
+            HStack(spacing: 14) {
+                Image(systemName: look.symbol)
+                    .font(.title2)
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 36)
+                Text(look.title).font(.headline)
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
     }
 
     private func slider(_ title: String, value: Binding<Double>) -> some View {

@@ -20,15 +20,18 @@ public struct CloudSettings: Codable, Sendable, Equatable {
     public var showDistance: Bool
     public var nameAlerts: Bool
     public var nameList: String
+    /// `SoundLabel` raw values the user muted. nil in documents saved before this existed.
+    public var mutedSounds: [String]?
 
     public init(detectionSensitivity: Double, alertSensitivity: Double, wristbandHaptics: Bool,
-                showDistance: Bool, nameAlerts: Bool, nameList: String) {
+                showDistance: Bool, nameAlerts: Bool, nameList: String, mutedSounds: [String]? = nil) {
         self.detectionSensitivity = detectionSensitivity
         self.alertSensitivity = alertSensitivity
         self.wristbandHaptics = wristbandHaptics
         self.showDistance = showDistance
         self.nameAlerts = nameAlerts
         self.nameList = nameList
+        self.mutedSounds = mutedSounds
     }
 }
 

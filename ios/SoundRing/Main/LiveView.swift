@@ -19,10 +19,13 @@ struct LiveView: View {
     @AppStorage(SettingKey.detect(.traffic)) private var detectTraffic = true
     @AppStorage(SettingKey.detect(.speech)) private var detectSpeech = true
     @AppStorage(SettingKey.detect(.ambient)) private var detectAmbient = true
+    @AppStorage(SettingKey.mutedSounds) private var mutedSounds = ""
 
-    /// Settings "Sounds to detect" first, then this screen's filter.
+    /// Settings "Sounds to detect" and "Filter sounds" first, then this screen's filter.
     private var visible: [SoundCue] {
-        model.cues.filter { cue in
+        let muted = MutedSounds.parse(mutedSounds)
+        return model.cues.filter { cue in
+            if let label = cue.label, muted.contains(label) { return false }
             let enabled = switch cue.group {
             case .urgent: detectUrgent
             case .traffic: detectTraffic

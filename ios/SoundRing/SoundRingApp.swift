@@ -11,6 +11,7 @@ struct SoundRingApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task { await SettingsSync.pull() }
         }
     }
 }
