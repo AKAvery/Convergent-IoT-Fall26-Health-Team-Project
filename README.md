@@ -107,7 +107,33 @@ Owners and deadlines are in `docs/team-plan.md`.
 | `ml/` | The trained sound classifier and the training code that built it (we won't retrain). See `ml/README.md`. |
 | `pi/` | Earlier hat-mounted Raspberry Pi prototype. Its classifier code (thresholds, persistence) is what the iPhone app ports. |
 | `docs/` | `architecture.md`, `body-boxes-plan.md`, `team-plan.md`, `hardware-bom.md`, the data-flow diagram, older mockups and the project PDF |
-| `firmware/`, `ios/`, `firebase/` | To be created; see the repo layout in `docs/team-plan.md`. |
+| `ios/` | The iPhone app (`SoundRing`) and its Swift package `Packages/SoundRingKit`. |
+| `firmware/` | Code for the body boxes (PlatformIO), plus `tools/box_listen.py` for testing a box from a Mac. |
+| `firebase/` | To be created; see the repo layout in `docs/team-plan.md`. |
+
+## Setup after cloning
+
+**iPhone app** (needs Xcode 16+ and Homebrew). The Xcode project and the TensorFlow Lite
+library are not checked in, so make them once per checkout:
+
+```sh
+brew install xcodegen
+ios/scripts/fetch_tflite.sh          # downloads TensorFlow Lite (~80 MB) into SoundRingKit/Vendor/
+cd ios && xcodegen generate          # makes SoundRing.xcodeproj from project.yml
+open SoundRing.xcodeproj
+```
+
+Run `xcodegen generate` again after you pull changes to `ios/project.yml` or add files.
+
+**Python** (`ml/`, `demo/`, `firmware/tools/`), Python 3.12:
+
+```sh
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Firmware:** PlatformIO fetches the libraries listed in `firmware/platformio.ini` itself.
+**Raspberry Pi:** see `pi/README.md`.
 
 ## Status
 
