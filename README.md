@@ -15,6 +15,7 @@ disagrees with it, this file wins and the other doc needs updating (see
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | **Start here.** The layers, the tech stack and where data goes, with a diagram |
 | [`docs/body-boxes-plan.md`](docs/body-boxes-plan.md) | How the boxes work out direction from loudness |
+| [`docs/status.md`](docs/status.md) | **What's built and what's not**, stage by stage. Plan from it |
 | [`docs/team-plan.md`](docs/team-plan.md) | Who builds what, week by week, and the contracts between lanes |
 | [`docs/hardware-bom.md`](docs/hardware-bom.md) | Parts list for the 4 boxes |
 
@@ -137,18 +138,8 @@ pip install -r requirements.txt
 
 ## Status
 
-- [x] Sound classifier: 13 classes, multi-label, 93.8% on held-out data, noise/overlap augmentation
-- [x] Laptop live demo (`demo/`)
-- [x] Architecture and team plan (`docs/architecture.md`, `docs/team-plan.md`)
-- [x] Parts ordered for 4 boxes plus spares (`docs/hardware-bom.md`)
-- [ ] Body-shadow test: 2 boxes, chest and back, the box facing a clap reads ≥ 6 dB louder
-- [ ] iPhone app on fake sounds: live view, filters, settings
-- [ ] YAMNet + head running inside the iPhone app on a `.wav` file
-- [ ] Preprocessing on the phone: quiet level, direction, loudest-box switching
-- [ ] Firebase: auth, settings sync, history
-- [ ] 4 boxes over Bluetooth into the phone
-- [ ] Cases with clips, battery-life test
-- [ ] Watch app (later)
+What's done and what's not, stage by stage: **[`docs/status.md`](docs/status.md)**. That file
+is the ground truth for build status; tick items there as they land.
 
 ## Docs that need reconciling
 
