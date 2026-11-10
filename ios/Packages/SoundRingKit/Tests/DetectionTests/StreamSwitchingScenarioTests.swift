@@ -34,17 +34,20 @@ private struct Room {
     }
 
     /// Runs `tracker` from 0 to `until`; returns every switch (time, box) after the first pick.
+    /// Like the app (DetectionEngine.handle): the boxes' packets arrive 25 ms apart and the
+    /// stream choice runs after each one, so it sometimes compares a fresh level with ones up
+    /// to 100 ms old. Deciding once after all 4 boxes hid a wrong-box bug in the fast lane.
     mutating func run(_ tracker: inout DirectionTracker, until: Double) -> [(t: Double, box: BoxPosition)] {
         var switches: [(Double, BoxPosition)] = []
         var first = true
         for k in 0..<Int(until * 10) {
-            let t = Double(k) / 10
-            for b in BoxPosition.allCases {
+            for (i, b) in BoxPosition.allCases.enumerated() {
+                let t = Double(k) / 10 + Double(i) * 0.025
                 tracker.add(BoxLevel(box: b, seq: UInt16(truncatingIfNeeded: k), receivedAt: Date(),
                                      peakDbfs: level(b, at: t), clipped: false), at: t)
-            }
-            if let box = tracker.updateStreamingBox(at: t) {
-                if first { first = false } else { switches.append((t, box)) }
+                if let box = tracker.updateStreamingBox(at: t) {
+                    if first { first = false } else { switches.append((t, box)) }
+                }
             }
         }
         return switches
@@ -69,11 +72,10 @@ private func talker(at box: BoxPosition, db: Float = 20, seed: UInt64, until: Do
     return Room.Source(gains: gains, on: on)
 }
 
-/// The rule on main before this branch: 1 s average, 3 dB for 0.5 s, no cooldown, no fast lane.
+/// The rule on main before this branch: 1 s average, 3 dB for 0.5 s, no cooldown.
 private var mainRule: DirectionConfig {
     var c = DirectionConfig()
     c.switchCooldownS = 0
-    c.onsetJumpDb = .infinity
     return c
 }
 
@@ -152,32 +154,22 @@ private var mainRule: DirectionConfig {
         #expect(after.count <= 8)
     }
 
-    /// A talker resuming after a pause must not trip the fast lane: with it on or off, the same
-    /// conversation switches the same number of times.
-    @Test func speechDoesNotTripTheFastLane() {
-        let sources = [talker(at: .front, seed: 3, until: 60), talker(at: .back, seed: 4, until: 60)]
-        var noFast = DirectionConfig()
-        noFast.onsetJumpDb = .infinity
-        var r1 = Room(sources), r2 = Room(sources)
-        var withFast = DirectionTracker(), without = DirectionTracker(config: noFast)
-        #expect(r1.run(&withFast, until: 60).count == r2.run(&without, until: 60).count)
-    }
-
-    /// Someone talks softly in front; a knock behind (0.2 s). The stream jumps to BACK within one
-    /// level packet, so the detector hears the knock unshadowed. The old rule never switched.
-    @Test func knockBehindSwitchesAtOnce() throws {
-        let speech = talker(at: .front, db: 10, seed: 5, until: 12)
-        let knock = Room.Source(gains: [.back: 30, .left: 22, .right: 22, .front: 18], on: [(5.0, 5.2)])
-        var room = Room([speech, knock]), oldRoom = Room([speech, knock])
-        var d = DirectionTracker(), old = DirectionTracker(config: mainRule)
-        let s = room.run(&d, until: 12)
-        let o = oldRoom.run(&old, until: 12)
-        print("knock behind: branch \(s.map { "\($0.t)s->\($0.box.rawValue)" }), main \(o.map { "\($0.t)s->\($0.box.rawValue)" })")
-        let toBack = try #require(s.first { $0.box == .back })
-        #expect(toBack.t >= 5.0 && toBack.t <= 5.1)
-        // Holds BACK while the knock plays out, then returns to the talker.
-        #expect(s.contains { $0.box == .front && $0.t >= 6.5 && $0.t <= 8.5 })
-        #expect(!o.contains { $0.box == .back && $0.t <= 5.2 })
+    /// Regression for the fast lane (removed): someone in FRONT talks, stops, and 3 s later
+    /// someone BEHIND starts. With packets 25 ms apart, a side box that reported first looked
+    /// like a sudden sound and took the stream for ~3 s while it was 5 dB down on the talker.
+    /// The stream must only ever be on the talker's box.
+    @Test func newTalkerAfterPauseStreamsTheirBox() {
+        let front = Room.Source(gains: [.front: 20, .back: 12, .left: 15, .right: 15],
+                                on: stride(from: 0.25, to: 6, by: 0.75).map { ($0, $0 + 0.5) })
+        let back = Room.Source(gains: [.back: 20, .front: 12, .left: 15, .right: 15],
+                               on: stride(from: 9.25, to: 20, by: 0.75).map { ($0, $0 + 0.5) })
+        var room = Room([front, back])
+        room.jitterDb = 0
+        var d = DirectionTracker()
+        let s = room.run(&d, until: 20)
+        print("talker front, pause, talker back: \(s.map { "\($0.t)s->\($0.box.rawValue)" })")
+        #expect(s.allSatisfy { $0.box == .back }, "\(s.map { "\($0.t)s->\($0.box.rawValue)" })")
+        #expect(d.streamingBox == .back)
     }
 
     /// Handling noise: a thump on the BACK box only (the others don't hear it). No switch.
@@ -190,24 +182,5 @@ private var mainRule: DirectionConfig {
         // (The first pick at t = 0 is a coin toss in silence; after 2 s it must be FRONT and stay.)
         #expect(d.streamingBox == .front)
         #expect(!s.contains { $0.t >= 2 }, "\(s.map { "\($0.t)s->\($0.box.rawValue)" })")
-    }
-
-    /// Claps alternating FRONT/BACK every 0.3 s for 4 s: the fast lane fires at most once per
-    /// `onsetLockS`, not on every clap.
-    @Test func clapBurstIsRateLimited() {
-        var claps: [Room.Source] = []
-        for k in 0..<14 {
-            let t = 2.0 + Double(k) * 0.3
-            let box: BoxPosition = k.isMultiple(of: 2) ? .front : .back
-            var gains: [BoxPosition: Float] = [:]
-            for b in BoxPosition.allCases { gains[b] = b == box ? 28 : 18 }
-            claps.append(Room.Source(gains: gains, on: [(t, t + 0.1)]))
-        }
-        var room = Room(claps)
-        var d = DirectionTracker()
-        let s = room.run(&d, until: 8)
-        print("clap burst: \(s.map { "\($0.t)s->\($0.box.rawValue)" })")
-        #expect(s.count <= 4)
-        for (x, y) in zip(s, s.dropFirst()) { #expect(y.t - x.t >= 1.5 - 1e-9) }
     }
 }
