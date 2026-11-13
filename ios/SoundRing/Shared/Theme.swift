@@ -38,6 +38,15 @@ enum Theme {
     static let speech = adaptive(light: 0x654DC2, dark: 0xB29DFF)
     static let ambient = adaptive(light: 0x197A4D, dark: 0x61C78E)
 
+    // MARK: Profile themes (Profile > Edit). Muted on purpose and separate from the sound colours.
+
+    static let profileThemes: [(name: String, color: Color)] = [
+        ("Midnight", adaptive(light: 0x2B2E36, dark: 0x3A3D46)),
+        ("Forest", adaptive(light: 0x3F6B55, dark: 0x4F7D66)),
+        ("Aurora", adaptive(light: 0x5E5F96, dark: 0x7072A8)),
+        ("Dusk", adaptive(light: 0x9A5444, dark: 0xAD6655)),
+    ]
+
     // MARK: Spacing and radii
 
     /// 4-point steps. Use small steps inside a group and `xl` between groups, so the gaps
