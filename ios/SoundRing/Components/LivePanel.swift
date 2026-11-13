@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Which sounds the Live screen shows. The same three options as the chips and the menu.
+/// Which sounds the Live screen shows.
 enum LiveFilter: String, CaseIterable, Identifiable {
     case all = "All sounds", urgent = "Urgent only", speech = "Speech"
     var id: Self { self }
@@ -14,47 +14,34 @@ enum LiveFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// The grid + dial box with the "All sounds" menu and "N active" pill. Used on Live and in the
-/// Profile feed post.
+/// The dial with the "N active" count under it. The Profile feed post also shows the filter as a
+/// menu here; Live has its own segmented control, so it hides this one.
 struct LivePanel: View {
     let cues: [SoundCue]
     @Binding var filter: LiveFilter
     var showDistance = true
     var compact = false
+    var showsFilterMenu = true
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            PerspectiveGrid()
-            SoundDial(cues: cues, centerSymbol: "scope", showDistance: showDistance,
-                      compact: compact, showBackdrop: false)
-                .padding(compact ? 8 : 12)
-                .padding(.bottom, compact ? 20 : 28)
+        VStack(spacing: Theme.Space.s) {
+            SoundDial(cues: cues, showDistance: showDistance, compact: compact)
             HStack {
-                Menu {
+                if showsFilterMenu {
                     Picker("Show", selection: $filter) {
                         ForEach(LiveFilter.allCases) { Text($0.rawValue).tag($0) }
                     }
-                } label: {
-                    HStack(spacing: 6) {
-                        Circle().fill(Theme.accent).frame(width: 7, height: 7)
-                        Text(filter.rawValue)
-                        Image(systemName: "chevron.down").font(.caption2.bold())
-                    }
-                    .font((compact ? Font.caption : .subheadline).weight(.semibold))
-                    .foregroundStyle(Theme.text)
-                    .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(Capsule().fill(Theme.fill))
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .tint(Theme.accent)
                 }
                 Spacer()
                 Text("\(cues.count) active")
-                    .font((compact ? Font.caption : .subheadline).weight(.semibold))
-                    .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(Capsule().fill(Theme.fill))
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.secondaryText)
             }
-            .padding(compact ? 8 : 12)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22))
-        .background(RoundedRectangle(cornerRadius: 22).fill(Theme.background))
     }
 }
 
@@ -63,43 +50,38 @@ struct FrontScale: View {
     let cues: [SoundCue]
 
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let inset: CGFloat = 22
-            ZStack {
-                Capsule().fill(Theme.surface)
-                Capsule().stroke(Theme.line)
-                ForEach(0..<17, id: \.self) { i in
-                    Rectangle()
-                        .fill(Theme.secondaryText.opacity(i % 4 == 0 ? 0.8 : 0.4))
-                        .frame(width: 1, height: i % 4 == 0 ? 12 : 7)
-                        .position(x: inset + (w - 2 * inset) * CGFloat(i) / 16, y: 16)
+        VStack(spacing: Theme.Space.xs) {
+            GeometryReader { geo in
+                let w = geo.size.width
+                let inset: CGFloat = 6
+                let y: CGFloat = 8
+                ZStack {
+                    Rectangle().fill(Theme.line).frame(width: w - 2 * inset, height: 1).position(x: w / 2, y: y)
+                    ForEach(0..<9, id: \.self) { i in
+                        Rectangle()
+                            .fill(Theme.secondaryText.opacity(i % 4 == 0 ? 1 : 0.4))
+                            .frame(width: 1, height: i % 4 == 0 ? 12 : 6)
+                            .position(x: inset + (w - 2 * inset) * CGFloat(i) / 8, y: y)
+                    }
+                    ForEach(cues.filter { abs(CueDirection.signed($0.azimuthDeg)) <= 90 }) { cue in
+                        Circle()
+                            .fill(cue.group.color)
+                            .frame(width: 10, height: 10)
+                            .position(x: w / 2 + (w / 2 - inset) * CueDirection.signed(cue.azimuthDeg) / 90, y: y)
+                    }
                 }
-                Image(systemName: "arrowtriangle.down.fill")
-                    .font(.system(size: 9))
-                    .foregroundStyle(Theme.accent)
-                    .position(x: w / 2, y: 4)
-                ForEach(cues.filter { abs(CueDirection.signed($0.azimuthDeg)) <= 90 }) { cue in
-                    Circle()
-                        .fill(cue.group.color)
-                        .frame(width: 11, height: 11)
-                        .shadow(color: cue.group.color, radius: 4)
-                        .position(x: w / 2 + (w / 2 - inset) * CueDirection.signed(cue.azimuthDeg) / 90, y: 16)
-                }
-                HStack {
-                    Text("LEFT")
-                    Spacer()
-                    Text("FRONT")
-                    Spacer()
-                    Text("RIGHT")
-                }
-                .font(.system(size: 9, weight: .semibold)).tracking(1)
-                .foregroundStyle(Theme.secondaryText)
-                .padding(.horizontal, 18)
-                .position(x: w / 2, y: 36)
             }
+            .frame(height: 16)
+            HStack {
+                Text("Left")
+                Spacer()
+                Text("Front")
+                Spacer()
+                Text("Right")
+            }
+            .font(.caption2)
+            .foregroundStyle(Theme.secondaryText)
         }
-        .frame(height: 48)
         .accessibilityHidden(true)
     }
 }

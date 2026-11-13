@@ -2,105 +2,93 @@ import SwiftUI
 
 // Small pieces reused across the screens.
 
-/// Big cyan button ("Sign in", "Continue to next step", "Finish setup").
+/// Full-width filled button. Used once per screen at most, for the step that moves the user
+/// forward ("Sign in", "Continue to next step", "Finish setup", "Start live view").
 struct PrimaryButton: View {
     let title: String
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Theme.accent))
-                .foregroundStyle(Theme.onAccent)
-        }
-        .buttonStyle(.plain)
+        Button(title, action: action)
+            .buttonStyle(FilledButtonStyle())
     }
 }
 
-/// Dark button under a primary one ("Create an account", "Try alignment again").
+/// Full-width quiet button under a primary one ("Create an account").
 struct SecondaryButton: View {
     let title: String
     var dimmed = false
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Theme.fill))
-                .foregroundStyle(dimmed ? Theme.secondaryText : Theme.text)
-        }
-        .buttonStyle(.plain)
+        Button(title, action: action)
+            .buttonStyle(FilledButtonStyle(fill: Theme.fill, foreground: dimmed ? Theme.secondaryText : Theme.text))
     }
 }
 
-/// Rounded dark card with a thin border.
-struct CardBackground: ViewModifier {
-    var radius: CGFloat = 18
-    var stroke: Color = Theme.line
+struct FilledButtonStyle: ButtonStyle {
+    var fill: Color = Theme.accent
+    var foreground: Color = Theme.onAccent
+    @Environment(\.isEnabled) private var isEnabled
 
-    func body(content: Content) -> some View {
-        content
-            .background(RoundedRectangle(cornerRadius: radius).fill(Theme.surface))
-            .overlay(RoundedRectangle(cornerRadius: radius).stroke(stroke, lineWidth: 1))
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .multilineTextAlignment(.center)
+            .foregroundStyle(foreground)
+            .padding(.vertical, 14)
+            .padding(.horizontal, Theme.Space.l)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(fill))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
     }
 }
 
-extension View {
-    func card(radius: CGFloat = 18, stroke: Color = Theme.line) -> some View {
-        modifier(CardBackground(radius: radius, stroke: stroke))
-    }
-}
-
-/// The round person button top-right on Home and Pins. Opens the profile.
+/// Opens the profile. Lives in the navigation bar on Home and Pins.
 struct AvatarButton: View {
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "figure.stand")
-                .font(.title3)
-                .foregroundStyle(Theme.accent)
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(Theme.fill))
+            Image(systemName: "person.crop.circle")
+                .font(.title2)
         }
-        .buttonStyle(.plain)
         .accessibilityLabel("Profile")
     }
 }
 
-/// Back chevron + "1 Find / 2 Connect / 3 Align" progress bar at the top of the setup screens.
+/// Back button and "1 Find / 2 Connect / 3 Align" progress at the top of the setup screens.
 struct StepHeader: View {
     let step: Int            // 1...3
     let onBack: () -> Void
     private let titles = ["Find", "Connect", "Align"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: Theme.Space.l) {
             Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.headline)
-                    .foregroundStyle(Theme.text)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Theme.fill))
+                if step == 1 {
+                    Text("Cancel")
+                } else {
+                    Label("Back", systemImage: "chevron.left").labelStyle(.titleAndIcon)
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Back")
-            HStack(spacing: 6) {
+            .buttonStyle(.borderless)
+            .tint(Theme.accent)
+            HStack(spacing: Theme.Space.xs) {
                 ForEach(0..<3, id: \.self) { i in
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Theme.Space.xs) {
                         Capsule()
-                            .fill(i < step ? Theme.accent : Theme.secondaryText.opacity(0.6))
-                            .frame(height: 4)
+                            .fill(i < step ? Theme.accent : Theme.fill)
+                            .frame(height: 3)
                         Text("\(i + 1) \(titles[i])")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(i < step ? Theme.accent : Theme.secondaryText)
+                            .font(.caption.weight(i + 1 == step ? .semibold : .regular))
+                            .foregroundStyle(i + 1 == step ? Theme.text : Theme.secondaryText)
                     }
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Step \(step) of 3, \(titles[step - 1])")
         }
     }
 }
@@ -122,40 +110,15 @@ struct BluetoothGlyph: Shape {
     }
 }
 
-/// The receding grid behind the Live dial.
-struct PerspectiveGrid: View {
-    var body: some View {
-        Canvas { ctx, size in
-            let vanish = CGPoint(x: size.width / 2, y: size.height * 0.45)
-            var lines = Path()
-            for i in 0...10 {
-                let x = size.width * CGFloat(i) / 10
-                lines.move(to: CGPoint(x: x, y: size.height))
-                lines.addLine(to: vanish)
-                lines.move(to: CGPoint(x: x, y: 0))
-                lines.addLine(to: vanish)
-            }
-            for i in 1...7 {
-                let t = pow(CGFloat(i) / 7, 1.8)
-                let dy = (size.height - vanish.y) * t
-                lines.move(to: CGPoint(x: 0, y: vanish.y + dy))
-                lines.addLine(to: CGPoint(x: size.width, y: vanish.y + dy))
-                lines.move(to: CGPoint(x: 0, y: vanish.y - vanish.y * t))
-                lines.addLine(to: CGPoint(x: size.width, y: vanish.y - vanish.y * t))
-            }
-            ctx.stroke(lines, with: .color(Theme.accent.opacity(0.08)), lineWidth: 1)
-        }
-    }
-}
-
-/// Animated bars under the Live card.
+/// Bars under the main sound on Live. Holds still when Reduce Motion is on.
 struct Waveform: View {
     let color: Color
-    var bars = 46
+    var bars = 40
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 20)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
+        TimelineView(.animation(minimumInterval: 1 / 20, paused: reduceMotion)) { timeline in
+            let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
             Canvas { ctx, size in
                 let step = size.width / CGFloat(bars)
                 for i in 0..<bars {
@@ -163,12 +126,43 @@ struct Waveform: View {
                     let center = 1 - abs(Double(i) / Double(bars - 1) - 0.5) * 1.4
                     let wobble = 0.5 + 0.5 * sin(t * 6 + Double(i) * 0.9) * cos(t * 2.3 + Double(i) * 0.37)
                     let h = max(2, size.height * CGFloat(max(0.08, center * wobble)))
-                    let bar = Path(roundedRect: CGRect(x: x - 1.25, y: (size.height - h) / 2, width: 2.5, height: h),
-                                   cornerRadius: 1.25)
+                    let bar = Path(roundedRect: CGRect(x: x - 1, y: (size.height - h) / 2, width: 2, height: h),
+                                   cornerRadius: 1)
                     ctx.fill(bar, with: .color(color))
                 }
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// A plain section label for screens that aren't a List: "Sounds today".
+struct SectionLabel: View {
+    let title: String
+    init(_ title: String) { self.title = title }
+
+    var body: some View {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Rounded panel with a hairline border. Kept only until the screens move to native lists.
+struct CardBackground: ViewModifier {
+    var radius: CGFloat = Theme.Radius.control
+    var stroke: Color = Theme.line
+
+    func body(content: Content) -> some View {
+        content
+            .background(RoundedRectangle(cornerRadius: radius).fill(Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: radius).stroke(stroke, lineWidth: 1))
+    }
+}
+
+extension View {
+    func card(radius: CGFloat = Theme.Radius.control, stroke: Color = Theme.line) -> some View {
+        modifier(CardBackground(radius: radius, stroke: stroke))
     }
 }
