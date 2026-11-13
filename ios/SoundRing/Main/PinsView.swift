@@ -34,7 +34,7 @@ struct PinsView: View {
                     .font(.title3.bold())
                     .foregroundStyle(Theme.secondaryText)
                     .padding(.horizontal, 44).padding(.vertical, 14)
-                    .background(RoundedRectangle(cornerRadius: 18).fill(Theme.surfaceRaised))
+                    .background(RoundedRectangle(cornerRadius: 18).fill(Theme.fill))
             }
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity)
@@ -74,7 +74,7 @@ struct PinRow: View {
                 .font(.title)
                 .foregroundStyle(link.state == .connected ? Theme.accent : Theme.secondaryText)
                 .frame(width: 56, height: 56)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.accentDim))
+                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.fill))
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(box.rawValue.capitalized) pin").font(.headline)
                 Text(stateText).font(.subheadline).foregroundStyle(Theme.secondaryText)

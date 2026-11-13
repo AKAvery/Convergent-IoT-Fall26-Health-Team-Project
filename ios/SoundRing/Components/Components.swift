@@ -30,7 +30,7 @@ struct SecondaryButton: View {
             Text(title)
                 .font(.headline)
                 .frame(maxWidth: .infinity, minHeight: 52)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Theme.surfaceRaised))
+                .background(RoundedRectangle(cornerRadius: 16).fill(Theme.fill))
                 .foregroundStyle(dimmed ? Theme.secondaryText : Theme.text)
         }
         .buttonStyle(.plain)
@@ -65,7 +65,7 @@ struct AvatarButton: View {
                 .font(.title3)
                 .foregroundStyle(Theme.accent)
                 .frame(width: 40, height: 40)
-                .background(Circle().fill(Theme.accentDim))
+                .background(Circle().fill(Theme.fill))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Profile")
@@ -85,7 +85,7 @@ struct StepHeader: View {
                     .font(.headline)
                     .foregroundStyle(Theme.text)
                     .frame(width: 36, height: 36)
-                    .background(Circle().fill(Theme.surfaceRaised))
+                    .background(Circle().fill(Theme.fill))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Back")

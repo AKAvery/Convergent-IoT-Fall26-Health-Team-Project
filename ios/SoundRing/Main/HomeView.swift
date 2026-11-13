@@ -50,7 +50,7 @@ struct HomeView: View {
                                 .font(.title3)
                                 .foregroundStyle(Theme.accent)
                                 .frame(width: 40, height: 40)
-                                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.accentDim))
+                                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.fill))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Live Session \(DemoData.lastSessionMinutesAgo) minutes ago").font(.headline)
                                 Text("\(DemoData.lastSessionSounds) sounds detected")
@@ -83,7 +83,7 @@ struct HomeView: View {
                         Circle().stroke(Theme.accent.opacity(0.25 + 0.2 * Double(i)), lineWidth: 1.5)
                             .frame(width: 64 - CGFloat(i) * 16, height: 64 - CGFloat(i) * 16)
                     }
-                    Circle().fill(Theme.accentDim).frame(width: 30, height: 30)
+                    Circle().fill(Theme.fill).frame(width: 30, height: 30)
                 }
                 .frame(width: 64, height: 64)
                 VStack(alignment: .leading, spacing: 4) {
@@ -112,7 +112,7 @@ struct HomeView: View {
                     .font(.title3)
                     .foregroundStyle(Theme.accent)
                     .frame(width: 36, height: 36)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Theme.accentDim))
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Theme.fill))
                     .padding(.bottom, 8)
                 Text(title).font(.headline)
                 Text(subtitle).font(.footnote).foregroundStyle(Theme.secondaryText)

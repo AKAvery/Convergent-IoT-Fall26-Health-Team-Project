@@ -104,7 +104,7 @@ struct ProfileFeed: View {
                     .font(.title2)
                     .foregroundStyle(Theme.accent)
                     .frame(width: 44, height: 44)
-                    .background(Circle().fill(Theme.accentDim))
+                    .background(Circle().fill(Theme.fill))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Username").font(.headline)
                     Text("3h ago").font(.caption).foregroundStyle(Theme.secondaryText)
@@ -128,7 +128,7 @@ struct ProfileFeed: View {
         Label(title, systemImage: symbol)
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accentDim))
+            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.fill))
             .foregroundStyle(Theme.text)
     }
 }
@@ -239,7 +239,7 @@ private struct EcosystemDiagram: View {
                     .font(.title2)
                     .foregroundStyle(Theme.accent)
                     .frame(width: 52, height: 52)
-                    .background(Circle().fill(Theme.accentDim))
+                    .background(Circle().fill(Theme.fill))
                     .overlay(Circle().stroke(Theme.accent, lineWidth: 1.5))
                     .shadow(color: Theme.accent.opacity(0.6), radius: 12)
                     .position(c)

@@ -44,7 +44,7 @@ struct SoundDial: View {
                     .font(.system(size: r * 0.2, weight: .semibold))
                     .foregroundStyle(Theme.accent)
                     .frame(width: r * 0.42, height: r * 0.42)
-                    .background(Circle().fill(Theme.accentDim.opacity(0.6)))
+                    .background(Circle().fill(Theme.fill.opacity(0.6)))
                     .overlay(Circle().stroke(Theme.accent, lineWidth: 2))
                     .shadow(color: Theme.accent.opacity(0.5), radius: 10)
                     .position(c)

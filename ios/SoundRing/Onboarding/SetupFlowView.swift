@@ -65,7 +65,7 @@ struct FindPinsStep: View {
                             .font(.title2)
                             .foregroundStyle(Theme.accent)
                             .frame(width: 44, height: 44)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.accentDim))
+                            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.fill))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(name).font(.headline)
                             Text("Ready to pair").font(.footnote).foregroundStyle(Theme.secondaryText)
@@ -137,7 +137,7 @@ struct RadarSweep: View {
                         .font(.system(size: s * 0.12, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                         .frame(width: s * 0.27, height: s * 0.27)
-                        .background(Circle().fill(Theme.accentDim))
+                        .background(Circle().fill(Theme.fill))
                         .overlay(Circle().stroke(Theme.accent, lineWidth: 2))
                         .shadow(color: Theme.accent.opacity(0.6), radius: 12)
                         .position(c)
@@ -284,7 +284,7 @@ private struct AlignRing: View {
                 Circle().stroke(Theme.line, lineWidth: 1).frame(width: s * 0.58, height: s * 0.58).position(c)
                 ForEach(MicSide.allCases, id: \.self) { side in
                     let state = side.rawValue < aligned ? 2 : side.rawValue == aligned ? 1 : 0
-                    let color = state == 2 ? green : state == 1 ? Theme.accent : Theme.surfaceRaised
+                    let color = state == 2 ? green : state == 1 ? Theme.accent : Theme.fill
                     Circle()
                         .trim(from: 0, to: 80.0 / 360)
                         .stroke(color, style: StrokeStyle(lineWidth: ringWidth))
@@ -301,7 +301,7 @@ private struct AlignRing: View {
                     .font(.system(size: s * 0.15))
                     .foregroundStyle(Theme.accent)
                     .frame(width: s * 0.32, height: s * 0.32)
-                    .background(Circle().fill(Theme.surfaceRaised))
+                    .background(Circle().fill(Theme.fill))
                     .position(c)
             }
         }

@@ -12,7 +12,7 @@ struct WelcomeView: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Theme.accent)
                     .frame(width: 34, height: 34)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Theme.accentDim))
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Theme.fill))
                     .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.accent, lineWidth: 1.5))
                 Text("Halo").font(.title2.bold())
             }

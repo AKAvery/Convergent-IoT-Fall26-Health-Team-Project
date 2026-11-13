@@ -3,36 +3,78 @@ import SwiftUI
 import UIKit
 #endif
 
-// Colours from the Figma screens in ios/design-refs/ (dark), plus a light version of each.
-// The iPhone app follows the system appearance; the Watch is always dark.
-// Shared by the iPhone app and the Watch app.
+// The one place colours, spacing and corner radii are defined. Shared by the iPhone app and the
+// Watch app. The iPhone app follows the system appearance; the Watch is always dark.
+//
+// Rules:
+// - `accent` is for primary actions and the current selection only. Never decoration.
+// - The four sound-group colours (`urgent`, `traffic`, `speech`, `ambient`) carry information:
+//   they mean "this is that kind of sound". Don't reuse them for status (done, online, battery OK).
+// - Every text colour here is at least 4.5:1 against `background` and `surface` in both modes.
 enum Theme {
-    static let background = adaptive(light: (0.957, 0.965, 0.980), dark: (0.035, 0.051, 0.086))
-    static let surface = adaptive(light: (1.000, 1.000, 1.000), dark: (0.086, 0.114, 0.169))
-    static let surfaceRaised = adaptive(light: (0.902, 0.922, 0.949), dark: (0.118, 0.149, 0.212))
-    static let line = adaptive(light: (0.06, 0.09, 0.15), dark: (1, 1, 1), lightAlpha: 0.12, darkAlpha: 0.14)
-    static let text = adaptive(light: (0.063, 0.090, 0.149), dark: (1, 1, 1))
-    static let secondaryText = adaptive(light: (0.365, 0.420, 0.510), dark: (0.62, 0.67, 0.75))
-    static let accent = adaptive(light: (0.000, 0.600, 0.718), dark: (0.13, 0.83, 0.93))
-    static let accentDim = adaptive(light: (0.855, 0.957, 0.976), dark: (0.07, 0.25, 0.29))
-    /// Text and icons drawn on top of `accent` (filled buttons, selected chips).
-    static let onAccent = adaptive(light: (1, 1, 1), dark: (0.035, 0.051, 0.086))
+    // MARK: Neutrals (warm, not navy)
 
-    static let urgent = adaptive(light: (0.890, 0.188, 0.298), dark: (1.00, 0.33, 0.42))
-    static let traffic = adaptive(light: (0.890, 0.545, 0.000), dark: (1.00, 0.71, 0.20))
-    static let speech = adaptive(light: (0.427, 0.329, 0.937), dark: (0.66, 0.56, 1.00))
-    static let ambient = adaptive(light: (0.094, 0.616, 0.400), dark: (0.20, 0.78, 0.55))
+    /// Screen background. Off-white in light mode, neutral near-black in dark.
+    static let background = adaptive(light: 0xF5F4F1, dark: 0x111112)
+    /// Rows in grouped lists and the few panels that need a surface.
+    static let surface = adaptive(light: 0xFDFCFB, dark: 0x1E1E20)
+    /// Quiet fills: secondary buttons, empty segments, slider tracks.
+    static let fill = adaptive(light: 0xEAE8E4, dark: 0x2A2A2C)
+    /// Hairlines and separators.
+    static let line = adaptive(light: 0x1C1B19, dark: 0xFFFFFF, lightAlpha: 0.12, darkAlpha: 0.12)
+    static let text = adaptive(light: 0x1C1B19, dark: 0xF2F1EE)
+    static let secondaryText = adaptive(light: 0x64625E, dark: 0xA1A09C)
 
-    private typealias RGB = (Double, Double, Double)
+    // MARK: Accent (primary actions and selection only)
 
-    private static func adaptive(light: RGB, dark: RGB, lightAlpha: Double = 1, darkAlpha: Double = 1) -> Color {
+    static let accent = adaptive(light: 0x1B5794, dark: 0x7AAAE6)
+    /// Text and icons drawn on top of `accent` or a sound-group colour.
+    static let onAccent = adaptive(light: 0xFFFFFF, dark: 0x111112)
+
+    // MARK: Sound groups (information, not decoration)
+
+    static let urgent = adaptive(light: 0xC41C2A, dark: 0xFF6A6A)
+    static let traffic = adaptive(light: 0x995C00, dark: 0xF5B245)
+    static let speech = adaptive(light: 0x654DC2, dark: 0xB29DFF)
+    static let ambient = adaptive(light: 0x197A4D, dark: 0x61C78E)
+
+    // MARK: Spacing and radii
+
+    /// 4-point steps. Use small steps inside a group and `xl` between groups, so the gaps
+    /// themselves show what belongs together.
+    enum Space {
+        static let xs: CGFloat = 4
+        static let s: CGFloat = 8
+        static let m: CGFloat = 12
+        static let l: CGFloat = 20
+        static let xl: CGFloat = 32
+        /// Left and right screen margin.
+        static let margin: CGFloat = 20
+    }
+
+    enum Radius {
+        /// Buttons and the dial panel.
+        static let control: CGFloat = 12
+        /// Sound chips on the dial.
+        static let chip: CGFloat = 8
+    }
+
+    // MARK: -
+
+    private static func adaptive(light: UInt32, dark: UInt32, lightAlpha: Double = 1, darkAlpha: Double = 1) -> Color {
         #if os(iOS)
         Color(UIColor { traits in
-            let (c, a) = traits.userInterfaceStyle == .dark ? (dark, darkAlpha) : (light, lightAlpha)
+            let (hex, a) = traits.userInterfaceStyle == .dark ? (dark, darkAlpha) : (light, lightAlpha)
+            let c = rgb(hex)
             return UIColor(red: c.0, green: c.1, blue: c.2, alpha: a)
         })
         #else
-        Color(red: dark.0, green: dark.1, blue: dark.2).opacity(darkAlpha)
+        let c = rgb(dark)
+        return Color(red: c.0, green: c.1, blue: c.2).opacity(darkAlpha)
         #endif
+    }
+
+    private static func rgb(_ hex: UInt32) -> (Double, Double, Double) {
+        (Double((hex >> 16) & 0xFF) / 255, Double((hex >> 8) & 0xFF) / 255, Double(hex & 0xFF) / 255)
     }
 }

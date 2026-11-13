@@ -40,7 +40,7 @@ struct WatchDial: View {
                     .font(.system(size: s * 0.13, weight: .semibold))
                     .foregroundStyle(Theme.accent)
                     .frame(width: s * 0.26, height: s * 0.26)
-                    .background(Circle().fill(Theme.accentDim.opacity(0.6)))
+                    .background(Circle().fill(Theme.fill.opacity(0.6)))
                     .position(c)
 
                 ForEach(cues) { cue in
