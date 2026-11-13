@@ -14,10 +14,9 @@ struct WatchListView: View {
             ForEach(feed.ranked) { cue in
                 HStack(spacing: 8) {
                     Image(systemName: cue.symbol)
-                        .font(.footnote.weight(.bold))
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(cue.group.color)
-                        .frame(width: 26, height: 26)
-                        .background(Circle().fill(cue.group.color.opacity(0.22)))
+                        .frame(width: 26)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(cue.title).font(.body.weight(.semibold))
                         Text(cue.direction).font(.footnote).foregroundStyle(Theme.secondaryText)

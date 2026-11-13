@@ -15,7 +15,7 @@ struct WatchNowView: View {
 }
 
 /// The ring, the wearer in the middle, an arrow on the ring toward each sound. 0° is straight ahead
-/// (top of the screen). The top sound gets a big glowing arrow; the rest are small and dim.
+/// (top of the screen). The top sound gets a big arrow; the rest are small and dim.
 struct WatchDial: View {
     let cues: [SoundCue]
     let primaryID: String?
@@ -37,18 +37,15 @@ struct WatchDial: View {
                     .position(x: c.x, y: c.y - ring)
 
                 Image(systemName: "figure.stand")
-                    .font(.system(size: s * 0.13, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: s * 0.26, height: s * 0.26)
-                    .background(Circle().fill(Theme.fill.opacity(0.6)))
+                    .font(.system(size: s * 0.13))
+                    .foregroundStyle(Theme.text)
                     .position(c)
 
                 ForEach(cues) { cue in
                     let isPrimary = cue.id == primaryID
                     Image(systemName: "arrowtriangle.up.fill")
-                        .font(.system(size: s * (isPrimary ? 0.15 : 0.08)))
+                        .font(.system(size: s * (isPrimary ? 0.16 : 0.08)))
                         .foregroundStyle(cue.group.color.opacity(isPrimary ? 1 : 0.55))
-                        .shadow(color: isPrimary ? cue.group.color.opacity(0.8) : .clear, radius: 6)
                         .rotationEffect(.degrees(cue.azimuthDeg))
                         .position(CueDirection.point(c, ring, cue.azimuthDeg))
                         .zIndex(isPrimary ? 1 : 0)
