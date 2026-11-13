@@ -5,7 +5,7 @@ enum SetupStep: Int {
 }
 
 /// Pairing: Find → Connect → Align (design-refs/Find_Glasses, Connecting_Glasses, Final_Setup).
-/// Reached from Welcome ("Create an account") and Pins ("Pair New Pin").
+/// Reached from Welcome ("Create an account") and Pins ("Pair a new pin").
 struct SetupFlowView: View {
     var startAt: SetupStep = .find
     let onFinish: () -> Void
@@ -14,27 +14,45 @@ struct SetupFlowView: View {
 
     var body: some View {
         let current = step ?? startAt
-        VStack(alignment: .leading, spacing: 24) {
-            StepHeader(step: current.rawValue) {
+        FillingScrollView {
+            VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                StepHeader(step: current.rawValue) {
+                    switch current {
+                    case .find: onCancel()
+                    case .connect: step = .find
+                    case .align: step = .connect
+                    }
+                }
                 switch current {
-                case .find: onCancel()
-                case .connect: step = .find
-                case .align: step = .connect
+                case .find: FindPinsStep { step = .connect }
+                case .connect: ConnectingStep { step = .align }
+                case .align: AlignStep(onFinish: onFinish)
                 }
             }
-            switch current {
-            case .find: FindPinsStep { step = .connect }
-            case .connect: ConnectingStep { step = .align }
-            case .align: AlignStep(onFinish: onFinish)
-            }
+            .padding(.horizontal, Theme.Space.margin)
+            .padding(.top, Theme.Space.s)
+            .padding(.bottom, Theme.Space.m)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.background)
         .foregroundStyle(Theme.text)
         .animation(.easeInOut(duration: 0.25), value: current)
+    }
+}
+
+/// Title and one line of explanation at the top of each setup step.
+private struct StepTitle: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            Text(title)
+                .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
+            Text(detail)
+                .foregroundStyle(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -46,105 +64,51 @@ struct FindPinsStep: View {
     @State private var scan = 0           // bump to restart the search
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Find your pins").font(.largeTitle.bold())
-            Text("Place your pins in close vicinity to your mobile phone.")
-                .foregroundStyle(Theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 0) {
+            StepTitle(title: "Find your pins",
+                      detail: "Hold your pins near this iPhone. They appear below when found.")
 
-            RadarSweep()
-                .frame(width: 220, height: 220)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-
-            Text("Devices found nearby").foregroundStyle(Theme.secondaryText)
-            VStack(spacing: 12) {
-                ForEach(Array(DemoData.pinsFoundNearby.prefix(found).enumerated()), id: \.offset) { i, name in
-                    HStack(spacing: 14) {
-                        Image(systemName: "paperclip")
-                            .font(.title2)
-                            .foregroundStyle(Theme.accent)
-                            .frame(width: 44, height: 44)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.fill))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(name).font(.headline)
-                            Text("Ready to pair").font(.footnote).foregroundStyle(Theme.secondaryText)
-                        }
-                        Spacer()
-                        Button("Connect", action: onConnect)
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 14).padding(.vertical, 8)
-                            .background(Capsule().fill(i == 0 ? Theme.accent : .clear))
-                            .overlay(Capsule().stroke(Theme.accent))
-                            .foregroundStyle(i == 0 ? Theme.onAccent : Theme.accent)
-                            .buttonStyle(.plain)
+            SectionLabel("Found nearby")
+                .padding(.top, Theme.Space.xl)
+                .padding(.bottom, Theme.Space.xs)
+            ForEach(Array(DemoData.pinsFoundNearby.prefix(found).enumerated()), id: \.offset) { _, name in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(name).font(.headline)
+                        Text("Ready to pair").font(.subheadline).foregroundStyle(Theme.secondaryText)
                     }
-                    .padding(12)
-                    .card(radius: 16)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    Spacer()
+                    Button("Connect", action: onConnect)
+                        .buttonStyle(.bordered)
+                        .tint(Theme.accent)
+                        .accessibilityLabel("Connect \(name)")
                 }
+                .padding(.vertical, Theme.Space.m)
+                .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
+                .transition(.opacity)
             }
-            HStack(spacing: 8) {
-                BluetoothGlyph()
-                    .stroke(Theme.secondaryText, style: StrokeStyle(lineWidth: 1.5, lineJoin: .round))
-                    .frame(width: 10, height: 16)
-                Text("Searching... make sure Bluetooth is on")
-                    .font(.footnote)
+            HStack(spacing: Theme.Space.s) {
+                ProgressView()
+                Text("Searching. Bluetooth needs to be on.")
+                    .font(.subheadline)
                     .foregroundStyle(Theme.secondaryText)
             }
-            .padding(.top, 6)
+            .padding(.vertical, Theme.Space.m)
 
-            Spacer(minLength: 12)
-            SecondaryButton(title: "I can\u{2019}t find my pins") { scan += 1 }
-                .padding(.horizontal, 24)
+            Spacer(minLength: Theme.Space.xl)
+            Button("I can\u{2019}t find my pins") { scan += 1 }
+                .buttonStyle(.borderless)
+                .tint(Theme.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.bottom, Theme.Space.s)
         }
         .task(id: scan) {
             found = 0
             for n in 1...DemoData.pinsFoundNearby.count {
                 try? await Task.sleep(for: .milliseconds(700))
-                withAnimation(.spring) { found = n }
+                withAnimation(.easeOut(duration: 0.2)) { found = n }
             }
         }
-    }
-}
-
-/// Rings with a rotating sweep and the pin in the middle.
-struct RadarSweep: View {
-    var body: some View {
-        TimelineView(.animation) { timeline in
-            let angle = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3) / 3 * 360
-            GeometryReader { geo in
-                let s = min(geo.size.width, geo.size.height)
-                let c = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-                ZStack {
-                    ForEach(1...4, id: \.self) { i in
-                        Circle().stroke(Theme.accent.opacity(0.18), lineWidth: 1)
-                            .frame(width: s * CGFloat(i) / 4, height: s * CGFloat(i) / 4)
-                            .position(c)
-                    }
-                    Circle()
-                        .trim(from: 0, to: 0.12)
-                        .fill(AngularGradient(colors: [Theme.accent.opacity(0), Theme.accent.opacity(0.45)],
-                                              center: .center, startAngle: .degrees(0), endAngle: .degrees(43)))
-                        .frame(width: s, height: s)
-                        .rotationEffect(.degrees(angle))
-                        .position(c)
-                    Circle().fill(Theme.accent).frame(width: 9, height: 9)
-                        .position(CueDirection.point(c, s * 0.37, 50))
-                    Circle().fill(Theme.accent.opacity(0.7)).frame(width: 7, height: 7)
-                        .position(CueDirection.point(c, s * 0.3, 235))
-                    Image(systemName: "paperclip")
-                        .font(.system(size: s * 0.12, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: s * 0.27, height: s * 0.27)
-                        .background(Circle().fill(Theme.fill))
-                        .overlay(Circle().stroke(Theme.accent, lineWidth: 2))
-                        .shadow(color: Theme.accent.opacity(0.6), radius: 12)
-                        .position(c)
-                }
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 
@@ -158,53 +122,46 @@ struct ConnectingStep: View {
                           (0.85, "Authenticating connection")]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Connecting...").font(.largeTitle.bold())
-            Text("Linking to your Halo pins. Keep your pins close -- this takes about 30 seconds.")
-                .foregroundStyle(Theme.secondaryText)
+        VStack(alignment: .leading, spacing: 0) {
+            StepTitle(title: "Connecting",
+                      detail: "Linking to your pins. Keep them close; this takes about 30 seconds.")
 
-            ZStack {
-                Circle().fill(Theme.surface.opacity(0.6))
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 14, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .shadow(color: Theme.accent.opacity(0.6), radius: 10)
-                    .padding(14)
-                VStack(spacing: 6) {
-                    Image(systemName: "figure.stand").font(.system(size: 40)).foregroundStyle(Theme.accent)
-                    Text("\(Int(progress * 100))%").font(.title.bold()).monospacedDigit()
-                }
+            VStack(alignment: .leading, spacing: Theme.Space.s) {
+                Text("\(Int(progress * 100))%")
+                    .font(.largeTitle.weight(.semibold))
+                    .monospacedDigit()
+                ProgressView(value: progress)
+                    .tint(Theme.accent)
             }
-            .frame(width: 210, height: 210)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .padding(.top, Theme.Space.xl)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Connecting")
+            .accessibilityValue("\(Int(progress * 100)) percent")
 
-            VStack(alignment: .leading, spacing: 22) {
-                Text("Bluetooth link established")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
+            SectionLabel("Bluetooth link established")
+                .padding(.top, Theme.Space.xl)
+                .padding(.bottom, Theme.Space.m)
+            VStack(alignment: .leading, spacing: Theme.Space.m) {
                 ForEach(checks, id: \.1) { at, title in
-                    HStack(spacing: 14) {
-                        Circle()
-                            .fill(progress >= at ? Theme.accent : .clear)
-                            .overlay(Circle().stroke(progress >= at ? Theme.accent : Theme.secondaryText, lineWidth: 1.5))
-                            .frame(width: 24, height: 24)
-                        Text(title).foregroundStyle(Theme.secondaryText)
+                    let done = progress >= at
+                    Label {
+                        Text(title).foregroundStyle(done ? Theme.text : Theme.secondaryText)
+                    } icon: {
+                        Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(done ? Theme.accent : Theme.secondaryText)
                     }
+                    .accessibilityValue(done ? "Done" : "Waiting")
                 }
             }
-            .padding(20)
-            .card(radius: 18)
 
-            Spacer(minLength: 12)
+            Spacer(minLength: Theme.Space.xl)
             PrimaryButton(title: "Continue to next step", action: onContinue)
         }
         .task {
             progress = 0
             while progress < 1 {
                 try? await Task.sleep(for: .milliseconds(40))
-                withAnimation(.linear(duration: 0.04)) { progress = min(1, progress + 0.01) }
+                progress = min(1, progress + 0.01)
             }
         }
     }
@@ -226,39 +183,36 @@ struct AlignStep: View {
     @State private var run = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Aligning the microphones").font(.title.bold())
-            Text("Say \u{201C}Hello\u{201D} toward each highlighted side so your pins learn where sound comes from.")
+        VStack(alignment: .leading, spacing: 0) {
+            StepTitle(title: "Align the microphones",
+                      detail: "Turn toward each highlighted side and say \u{201C}Hello\u{201D} so your pins learn where sound comes from.")
+            Label("Find a quiet spot. Background noise lowers accuracy.", systemImage: "info.circle")
+                .font(.subheadline)
                 .foregroundStyle(Theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "info.circle").foregroundStyle(Theme.accent)
-                Text("Find a quiet spot - background noise can reduce accuracy.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(14)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface))
-            .padding(.vertical, 10)
+                .padding(.top, Theme.Space.m)
 
             AlignRing(aligned: aligned)
-                .frame(width: 236, height: 236)
+                .frame(maxWidth: 240)
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, Theme.Space.xl)
 
-            VStack(spacing: 6) {
-                Text(aligned < 4 ? "Speak now - \(MicSide.allCases[aligned].name)" : "All microphones aligned")
-                    .font(.title3.bold())
-                    .foregroundStyle(Theme.accent)
-                Text("\(aligned) of 4 microphones aligned").foregroundStyle(Theme.secondaryText)
+            VStack(spacing: Theme.Space.xs) {
+                Text(aligned < 4 ? "Speak now: \(MicSide.allCases[aligned].name)" : "All microphones aligned")
+                    .font(.title3.weight(.semibold))
+                Text("\(aligned) of 4 microphones aligned")
+                    .foregroundStyle(Theme.secondaryText)
             }
+            .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
-            .padding(.top, 12)
+            .accessibilityElement(children: .combine)
 
-            Spacer(minLength: 12)
+            Spacer(minLength: Theme.Space.xl)
             PrimaryButton(title: "Finish setup", action: onFinish)
-            SecondaryButton(title: "Try alignment again") { run += 1 }
+            Button("Try alignment again") { run += 1 }
+                .buttonStyle(.borderless)
+                .tint(Theme.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.top, Theme.Space.m)
         }
         .task(id: run) {
             aligned = 0
@@ -270,41 +224,40 @@ struct AlignStep: View {
     }
 }
 
+/// Four segments around the wearer: the side to speak toward is in the accent colour, finished
+/// sides are a light grey with a check, the rest are faint.
 private struct AlignRing: View {
     let aligned: Int
-    private let green = Theme.ambient
 
     var body: some View {
         GeometryReader { geo in
             let s = min(geo.size.width, geo.size.height)
             let c = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-            let ringWidth = s * 0.2
+            let ringWidth = s * 0.16
             let radius = s / 2 - ringWidth / 2
             ZStack {
-                Circle().stroke(Theme.line, lineWidth: 1).frame(width: s * 0.58, height: s * 0.58).position(c)
                 ForEach(MicSide.allCases, id: \.self) { side in
                     let state = side.rawValue < aligned ? 2 : side.rawValue == aligned ? 1 : 0
-                    let color = state == 2 ? green : state == 1 ? Theme.accent : Theme.fill
+                    let color: Color = state == 2 ? Theme.secondaryText.opacity(0.35) : state == 1 ? Theme.accent : Theme.fill
+                    let iconColor: Color = state == 2 ? Theme.text : state == 1 ? Theme.onAccent : Theme.secondaryText
                     Circle()
                         .trim(from: 0, to: 80.0 / 360)
                         .stroke(color, style: StrokeStyle(lineWidth: ringWidth))
                         .frame(width: radius * 2, height: radius * 2)
                         .rotationEffect(.degrees(side.azimuthDeg - 40 - 90))
-                        .shadow(color: state > 0 ? color.opacity(0.6) : .clear, radius: 10)
                         .position(c)
                     Image(systemName: state == 2 ? "checkmark" : "mic")
                         .font(.headline)
-                        .foregroundStyle(state > 0 ? Theme.onAccent : Theme.secondaryText)
+                        .foregroundStyle(iconColor)
                         .position(CueDirection.point(c, radius, side.azimuthDeg))
                 }
                 Image(systemName: "figure.stand")
-                    .font(.system(size: s * 0.15))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: s * 0.32, height: s * 0.32)
-                    .background(Circle().fill(Theme.fill))
+                    .font(.system(size: s * 0.16))
+                    .foregroundStyle(Theme.text)
                     .position(c)
             }
         }
+        .aspectRatio(1, contentMode: .fit)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(aligned) of 4 microphones aligned")
     }

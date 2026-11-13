@@ -93,20 +93,19 @@ struct StepHeader: View {
     }
 }
 
-/// The Bluetooth rune (SF Symbols has none).
-struct BluetoothGlyph: Shape {
-    func path(in rect: CGRect) -> Path {
-        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+/// Scrolls only when the content is taller than the screen (large text sizes). Otherwise the
+/// content fills the screen, so a Spacer can push buttons to the bottom.
+struct FillingScrollView<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        GeometryReader { geo in
+            ScrollView {
+                content
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
-        var path = Path()
-        path.move(to: p(0.2, 0.3))
-        path.addLine(to: p(0.8, 0.72))
-        path.addLine(to: p(0.5, 0.95))
-        path.addLine(to: p(0.5, 0.05))
-        path.addLine(to: p(0.8, 0.28))
-        path.addLine(to: p(0.2, 0.7))
-        return path
     }
 }
 
