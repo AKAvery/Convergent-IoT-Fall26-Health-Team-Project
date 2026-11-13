@@ -13,84 +13,83 @@ struct SettingsView: View {
     @AppStorage(SettingKey.detect(.ambient)) private var detectAmbient = true
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Settings").font(.largeTitle.bold()).padding(.bottom, 10)
-
+        Form {
+            Section {
                 slider("Detection sensitivity", value: $detection)
-                    .padding(16)
-                    .card()
-
-                Text("Sounds to detect").foregroundStyle(Theme.secondaryText).padding(.top, 8)
-                VStack(spacing: 0) {
-                    groupToggle(.urgent, $detectUrgent)
-                    Divider().overlay(Theme.line)
-                    groupToggle(.traffic, $detectTraffic)
-                    Divider().overlay(Theme.line)
-                    groupToggle(.speech, $detectSpeech)
-                    Divider().overlay(Theme.line)
-                    groupToggle(.ambient, $detectAmbient)
-                }
-                .card()
-
-                NameAlertsCard()
-
-                Text("Alerts & Feedback").foregroundStyle(Theme.secondaryText).padding(.top, 8)
-                VStack(spacing: 0) {
-                    slider("Alert sensitivity", value: $alert).padding(16)
-                    Divider().overlay(Theme.line)
-                    iconToggle(symbol: "iphone.radiowaves.left.and.right", title: "Wristband haptics",
-                               subtitle: "Pulse pattern by sound type", isOn: $haptics)
-                    Divider().overlay(Theme.line)
-                    iconToggle(symbol: "figure.stand", title: "Show distance labels",
-                               subtitle: "Meters next to each recorded sound", isOn: $showDistance)
-                }
-                .card()
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 24)
+            .listRowBackground(Theme.surface)
+
+            Section("Sounds to detect") {
+                groupToggle(.urgent, $detectUrgent)
+                groupToggle(.traffic, $detectTraffic)
+                groupToggle(.speech, $detectSpeech)
+                groupToggle(.ambient, $detectAmbient)
+            }
+            .listRowBackground(Theme.surface)
+
+            NameAlertsSection()
+
+            Section("Alerts") {
+                slider("Alert sensitivity", value: $alert)
+                toggle("Wristband haptics", detail: "Pulse pattern by sound type", isOn: $haptics)
+                toggle("Show distance labels", detail: "Show how far away each sound is, in meters",
+                       isOn: $showDistance)
+            }
+            .listRowBackground(Theme.surface)
         }
+        .scrollContentBackground(.hidden)
         .background(Theme.background)
         .foregroundStyle(Theme.text)
-        .toolbar(.hidden, for: .navigationBar)
+        .tint(Theme.accent)
+        .navigationTitle("Settings")
     }
 
     private func slider(_ title: String, value: Binding<Double>) -> some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
             HStack {
-                Text(title).font(.headline)
+                Text(title)
                 Spacer()
-                Text(SensitivityLabel.text(value.wrappedValue)).font(.headline).foregroundStyle(Theme.accent)
+                Text(SensitivityLabel.text(value.wrappedValue)).foregroundStyle(Theme.secondaryText)
             }
             Slider(value: value, in: 0...1)
                 .accessibilityLabel(title)
+                .accessibilityValue(SensitivityLabel.text(value.wrappedValue))
         }
+        .padding(.vertical, Theme.Space.xs)
     }
 
+    /// One sound group: its colour (the same dot used on Home and the dial), name and what's in it.
     private func groupToggle(_ group: CueGroup, _ isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) {
-            HStack(spacing: 20) {
-                Circle().fill(group.color).frame(width: 26, height: 26)
-                Text(group.title).font(.headline)
-            }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 10)
-    }
-
-    private func iconToggle(symbol: String, title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
-        Toggle(isOn: isOn) {
-            HStack(spacing: 14) {
-                Image(systemName: symbol)
-                    .font(.title2)
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 36)
+            HStack(alignment: .top, spacing: Theme.Space.m) {
+                Circle()
+                    .fill(group.color)
+                    .frame(width: 10, height: 10)
+                    .padding(.top, 6)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline)
-                    Text(subtitle).font(.footnote).foregroundStyle(Theme.secondaryText)
+                    Text(group.title)
+                    Text(examples(group)).font(.footnote).foregroundStyle(Theme.secondaryText)
                 }
             }
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
+    }
+
+    private func examples(_ group: CueGroup) -> String {
+        switch group {
+        case .urgent: "Sirens, alarms, car horns, glass breaking, a baby crying"
+        case .traffic: "Bike bells, doorbells"
+        case .speech: "People talking"
+        case .ambient: "Dogs, cats, knocks, footsteps, appliances"
+        }
+    }
+
+    private func toggle(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(detail).font(.footnote).foregroundStyle(Theme.secondaryText)
+            }
+        }
     }
 }

@@ -147,21 +147,3 @@ struct SectionLabel: View {
             .accessibilityAddTraits(.isHeader)
     }
 }
-
-/// Rounded panel with a hairline border. Kept only until the screens move to native lists.
-struct CardBackground: ViewModifier {
-    var radius: CGFloat = Theme.Radius.control
-    var stroke: Color = Theme.line
-
-    func body(content: Content) -> some View {
-        content
-            .background(RoundedRectangle(cornerRadius: radius).fill(Theme.surface))
-            .overlay(RoundedRectangle(cornerRadius: radius).stroke(stroke, lineWidth: 1))
-    }
-}
-
-extension View {
-    func card(radius: CGFloat = Theme.Radius.control, stroke: Color = Theme.line) -> some View {
-        modifier(CardBackground(radius: radius, stroke: stroke))
-    }
-}

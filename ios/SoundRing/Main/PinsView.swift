@@ -2,49 +2,38 @@ import Input
 import Models
 import SwiftUI
 
-/// "Pins / Your Halo devices" (design-refs/Devices.png).
+/// The four worn pins (design-refs/Devices.png).
 struct PinsView: View {
     @State private var profileTab: ProfileTab?
     @State private var pairing = false
     private let session = LiveSession.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Pins").font(.largeTitle.bold())
-                    Text("Your Halo devices").foregroundStyle(Theme.secondaryText)
+        List {
+            Section {
+                ForEach(BoxPosition.allCases, id: \.self) { box in
+                    PinRow(box: box, link: session.ble.boxes[box] ?? BoxLinkStatus(),
+                           streaming: session.status.streamingBox == box)
                 }
-                Spacer()
-                AvatarButton { profileTab = .feed }
+            } footer: {
+                Text(session.summary)
             }
-            ScrollView {
-                VStack(spacing: 18) {
-                    ForEach(BoxPosition.allCases, id: \.self) { box in
-                        PinRow(box: box, link: session.ble.boxes[box] ?? BoxLinkStatus(),
-                               streaming: session.status.streamingBox == box)
-                    }
-                    Text(session.summary)
-                        .font(.footnote)
-                        .foregroundStyle(Theme.secondaryText)
-                }
+            .listRowBackground(Theme.surface)
+
+            Section {
+                Button("Pair a new pin") { pairing = true }
+                    .tint(Theme.accent)
             }
-            Button { pairing = true } label: {
-                Text("Pair New Pin")
-                    .font(.title3.bold())
-                    .foregroundStyle(Theme.secondaryText)
-                    .padding(.horizontal, 44).padding(.vertical, 14)
-                    .background(RoundedRectangle(cornerRadius: 18).fill(Theme.fill))
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity)
+            .listRowBackground(Theme.surface)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 12)
-        .padding(.bottom, 20)
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
         .background(Theme.background)
         .foregroundStyle(Theme.text)
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle("Pins")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { AvatarButton { profileTab = .feed } }
+        }
         .navigationDestination(item: $profileTab) { ProfileView(initialTab: $0) }
         .onAppear { session.start() }
         .fullScreenCover(isPresented: $pairing) {
@@ -69,29 +58,29 @@ struct PinRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "paperclip")
-                .font(.title)
-                .foregroundStyle(link.state == .connected ? Theme.accent : Theme.secondaryText)
-                .frame(width: 56, height: 56)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.fill))
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: Theme.Space.m) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("\(box.rawValue.capitalized) pin").font(.headline)
-                Text(stateText).font(.subheadline).foregroundStyle(Theme.secondaryText)
+                HStack(spacing: 6) {
+                    if streaming {
+                        Circle().fill(Theme.accent).frame(width: 6, height: 6).accessibilityHidden(true)
+                    }
+                    Text(stateText)
+                        .font(.subheadline)
+                        .foregroundStyle(link.state == .connected ? Theme.text : Theme.secondaryText)
+                }
                 if link.state == .connected, let db = link.lastPeakDbfs {
-                    Text(String(format: "%.0f dBFS", db)).font(.footnote.monospacedDigit())
+                    Text(String(format: "%.0f dBFS", db))
+                        .font(.footnote.monospacedDigit())
                         .foregroundStyle(Theme.secondaryText)
                 }
             }
             Spacer()
             Image(systemName: link.lowBattery ? "battery.25" : "battery.100")
-                .font(.title3)
                 .foregroundStyle(link.lowBattery ? Theme.urgent : Theme.secondaryText)
-                .frame(height: 56)
                 .accessibilityLabel(link.lowBattery ? "Battery low" : "Battery OK")
         }
-        .padding(10)
-        .card(radius: 18, stroke: (streaming ? Theme.accent : Theme.secondaryText).opacity(0.5))
+        .padding(.vertical, Theme.Space.xs)
         .accessibilityElement(children: .combine)
     }
 }

@@ -43,82 +43,74 @@ struct LiveView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
-                HStack {
-                    Text("Live view").font(.largeTitle.bold())
-                    Spacer()
-                    Image(systemName: "location.viewfinder")
-                        .font(.title2)
-                        .foregroundStyle(Theme.accent)
-                        .accessibilityHidden(true)
-                }
+            VStack(alignment: .leading, spacing: Theme.Space.l) {
                 Text(session.summary)
                     .font(.footnote)
                     .foregroundStyle(Theme.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                FrontScale(cues: visible)
-                LivePanel(cues: visible, filter: $filter, showDistance: showDistance)
-                    .frame(height: 330)
-                HStack(spacing: 10) {
-                    ForEach(LiveFilter.allCases) { f in
-                        Button(f.rawValue) { filter = f }
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 16).padding(.vertical, 10)
-                            .background(Capsule().fill(filter == f ? Theme.accent : .clear))
-                            .overlay(Capsule().stroke(filter == f ? .clear : Theme.line))
-                            .foregroundStyle(filter == f ? Theme.onAccent : Theme.secondaryText)
-                    }
+                // Above everything else so an urgent sound is seen without scrolling.
+                if let main, main.isUrgent {
+                    UrgentBanner(cue: main)
+                        .transition(.opacity)
                 }
-                .buttonStyle(.plain)
+                FrontScale(cues: visible)
+                LivePanel(cues: visible, filter: $filter, showDistance: showDistance, showsFilterMenu: false)
+                    .frame(maxWidth: 300)
+                    .frame(maxWidth: .infinity)
+                Picker("Show", selection: $filter) {
+                    ForEach(LiveFilter.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
                 if let main {
+                    Divider().overlay(Theme.line)
                     LiveSoundCard(cue: main, showDistance: showDistance)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 24)
+            .padding(.horizontal, Theme.Space.margin)
+            .padding(.bottom, Theme.Space.xl)
         }
         .background(Theme.background)
         .foregroundStyle(Theme.text)
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle("Live")
         .task { await model.listen(to: source) }
     }
 }
 
+/// Full-width filled bar at the top of Live while the most important sound is urgent.
+struct UrgentBanner: View {
+    let cue: SoundCue
+
+    var body: some View {
+        Label("Urgent: \(cue.title), \(cue.direction.lowercased())", systemImage: "exclamationmark.triangle.fill")
+            .font(.headline)
+            .foregroundStyle(Theme.onAccent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Theme.Space.m)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.control).fill(cue.group.color))
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// The most important sound right now: what it is, how far and which way.
 struct LiveSoundCard: View {
     let cue: SoundCue
     let showDistance: Bool
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: Theme.Space.m) {
+            HStack(alignment: .top, spacing: Theme.Space.m) {
                 Image(systemName: cue.symbol)
-                    .font(.title3)
+                    .font(.title2)
                     .foregroundStyle(cue.group.color)
-                    .frame(width: 46, height: 46)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(cue.group.color.opacity(0.22)))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(cue.title).font(.title3.bold())
+                    Text(cue.title).font(.title2.weight(.semibold))
                     Text(cue.longDetail(showDistance: showDistance))
                         .foregroundStyle(Theme.secondaryText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                Spacer()
-                if cue.isUrgent {
-                    Text("High priority")
-                        .font(.footnote.weight(.semibold))
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .overlay(Capsule().stroke(cue.group.color))
-                        .foregroundStyle(cue.group.color)
                 }
             }
             Waveform(color: cue.group.color)
-                .frame(height: 64)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.background))
+                .frame(height: 40)
         }
-        .padding(16)
-        .card(radius: 20, stroke: Theme.accent.opacity(0.7))
         .accessibilityElement(children: .combine)
     }
 }
