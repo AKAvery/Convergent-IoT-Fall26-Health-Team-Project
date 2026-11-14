@@ -31,6 +31,8 @@ enum Theme {
     static let accent = adaptive(light: 0x0064D2, dark: 0x64A8FF)
     /// Text and icons drawn on top of `accent` or a sound-group colour.
     static let onAccent = adaptive(light: 0xFFFFFF, dark: 0x000000)
+    /// A pale wash of the accent: behind the dial's centre mark and the profile button.
+    static let accentDim = adaptive(light: 0xDCE9F8, dark: 0x16294A)
 
     // MARK: Sound groups (information, not decoration)
     // Based on the system red, orange, purple and green, using their high-contrast variants.

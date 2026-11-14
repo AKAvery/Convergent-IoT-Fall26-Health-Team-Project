@@ -109,10 +109,54 @@ struct FillingScrollView<Content: View>: View {
     }
 }
 
+/// Rounded card with a thin border. The Live sound card.
+struct CardBackground: ViewModifier {
+    var radius: CGFloat = 18
+    var stroke: Color = Theme.line
+
+    func body(content: Content) -> some View {
+        content
+            .background(RoundedRectangle(cornerRadius: radius).fill(Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: radius).stroke(stroke, lineWidth: 1))
+    }
+}
+
+extension View {
+    func card(radius: CGFloat = 18, stroke: Color = Theme.line) -> some View {
+        modifier(CardBackground(radius: radius, stroke: stroke))
+    }
+}
+
+/// The receding grid behind the Live dial.
+struct PerspectiveGrid: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let vanish = CGPoint(x: size.width / 2, y: size.height * 0.45)
+            var lines = Path()
+            for i in 0...10 {
+                let x = size.width * CGFloat(i) / 10
+                lines.move(to: CGPoint(x: x, y: size.height))
+                lines.addLine(to: vanish)
+                lines.move(to: CGPoint(x: x, y: 0))
+                lines.addLine(to: vanish)
+            }
+            for i in 1...7 {
+                let t = pow(CGFloat(i) / 7, 1.8)
+                let dy = (size.height - vanish.y) * t
+                lines.move(to: CGPoint(x: 0, y: vanish.y + dy))
+                lines.addLine(to: CGPoint(x: size.width, y: vanish.y + dy))
+                lines.move(to: CGPoint(x: 0, y: vanish.y - vanish.y * t))
+                lines.addLine(to: CGPoint(x: size.width, y: vanish.y - vanish.y * t))
+            }
+            ctx.stroke(lines, with: .color(Theme.accent.opacity(0.08)), lineWidth: 1)
+        }
+    }
+}
+
 /// Bars under the main sound on Live. Holds still when Reduce Motion is on.
 struct Waveform: View {
     let color: Color
-    var bars = 40
+    var bars = 46
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -125,8 +169,8 @@ struct Waveform: View {
                     let center = 1 - abs(Double(i) / Double(bars - 1) - 0.5) * 1.4
                     let wobble = 0.5 + 0.5 * sin(t * 6 + Double(i) * 0.9) * cos(t * 2.3 + Double(i) * 0.37)
                     let h = max(2, size.height * CGFloat(max(0.08, center * wobble)))
-                    let bar = Path(roundedRect: CGRect(x: x - 1, y: (size.height - h) / 2, width: 2, height: h),
-                                   cornerRadius: 1)
+                    let bar = Path(roundedRect: CGRect(x: x - 1.25, y: (size.height - h) / 2, width: 2.5, height: h),
+                                   cornerRadius: 1.25)
                     ctx.fill(bar, with: .color(color))
                 }
             }
