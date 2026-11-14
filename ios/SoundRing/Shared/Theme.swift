@@ -12,38 +12,40 @@ import UIKit
 //   they mean "this is that kind of sound". Don't reuse them for status (done, online, battery OK).
 // - Every text colour here is at least 4.5:1 against `background` and `surface` in both modes.
 enum Theme {
-    // MARK: Neutrals (warm, not navy)
+    // MARK: Neutrals (the iOS grouped greys, so screens sit next to Settings and Health)
 
-    /// Screen background. Off-white in light mode, neutral near-black in dark.
-    static let background = adaptive(light: 0xF5F4F1, dark: 0x111112)
+    /// Screen background. Light grey in light mode, black in dark (black on the Watch).
+    static let background = adaptive(light: 0xF2F2F7, dark: 0x000000)
     /// Rows in grouped lists and the few panels that need a surface.
-    static let surface = adaptive(light: 0xFDFCFB, dark: 0x1E1E20)
+    static let surface = adaptive(light: 0xFFFFFF, dark: 0x1C1C1E)
     /// Quiet fills: secondary buttons, empty segments, slider tracks.
-    static let fill = adaptive(light: 0xEAE8E4, dark: 0x2A2A2C)
+    static let fill = adaptive(light: 0xE5E5EA, dark: 0x2C2C2E)
     /// Hairlines and separators.
-    static let line = adaptive(light: 0x1C1B19, dark: 0xFFFFFF, lightAlpha: 0.12, darkAlpha: 0.12)
-    static let text = adaptive(light: 0x1C1B19, dark: 0xF2F1EE)
-    static let secondaryText = adaptive(light: 0x64625E, dark: 0xA1A09C)
+    static let line = adaptive(light: 0x3C3C43, dark: 0x545458, lightAlpha: 0.29, darkAlpha: 0.6)
+    static let text = adaptive(light: 0x000000, dark: 0xFFFFFF)
+    static let secondaryText = adaptive(light: 0x6C6C70, dark: 0x98989F)
 
     // MARK: Accent (primary actions and selection only)
 
-    static let accent = adaptive(light: 0x1B5794, dark: 0x7AAAE6)
+    /// A plain system-style blue, darkened in light mode so white button text passes AA.
+    static let accent = adaptive(light: 0x0064D2, dark: 0x64A8FF)
     /// Text and icons drawn on top of `accent` or a sound-group colour.
-    static let onAccent = adaptive(light: 0xFFFFFF, dark: 0x111112)
+    static let onAccent = adaptive(light: 0xFFFFFF, dark: 0x000000)
 
     // MARK: Sound groups (information, not decoration)
+    // Based on the system red, orange, purple and green, using their high-contrast variants.
 
-    static let urgent = adaptive(light: 0xC41C2A, dark: 0xFF6A6A)
-    static let traffic = adaptive(light: 0x995C00, dark: 0xF5B245)
-    static let speech = adaptive(light: 0x654DC2, dark: 0xB29DFF)
-    static let ambient = adaptive(light: 0x197A4D, dark: 0x61C78E)
+    static let urgent = adaptive(light: 0xD70015, dark: 0xFF6961)
+    static let traffic = adaptive(light: 0xA35A00, dark: 0xFFB340)
+    static let speech = adaptive(light: 0x8944AB, dark: 0xD08BEF)
+    static let ambient = adaptive(light: 0x1F7A37, dark: 0x30DB5B)
 
     // MARK: Profile themes (Profile > Edit). Muted on purpose and separate from the sound colours.
 
     static let profileThemes: [(name: String, color: Color)] = [
-        ("Midnight", adaptive(light: 0x2B2E36, dark: 0x3A3D46)),
-        ("Forest", adaptive(light: 0x3F6B55, dark: 0x4F7D66)),
-        ("Aurora", adaptive(light: 0x5E5F96, dark: 0x7072A8)),
+        ("Midnight", adaptive(light: 0x2C2C2E, dark: 0x3A3A3C)),
+        ("Forest", adaptive(light: 0x3D6B4F, dark: 0x4C7D5F)),
+        ("Aurora", adaptive(light: 0x4F6A85, dark: 0x5F7B97)),
         ("Dusk", adaptive(light: 0x9A5444, dark: 0xAD6655)),
     ]
 
