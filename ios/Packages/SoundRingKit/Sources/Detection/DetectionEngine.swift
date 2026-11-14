@@ -38,6 +38,10 @@ public actor DetectionEngine: SoundEventSource {
     private var direction: DirectionTracker
     private var tracker: EventTracker
     private var pending: [Float] = []
+    /// Loudness (dBFS) of the newest hops, for the early end-of-speech check below.
+    private var hopDb: [Double] = []
+    /// The early check already reported the end of the current speech.
+    private var endedEarly = false
     private var lastFrame: (box: BoxPosition, seq: UInt16)?
     private var status = DetectionStatus()
     private let t0 = Date()
@@ -125,6 +129,21 @@ public actor DetectionEngine: SoundEventSource {
         }
     }
 
+    /// The detector's `speech` hit stays on for about a second after the voice stops (YAMNet hears
+    /// the last 0.975 s), so the name listener was told "speech ended" about a second late. This
+    /// looks at the newest hops directly: the last `quietHops` are all `dropDb` below the loudest of
+    /// the `baselineHops` before them. The detector's own end stays as the fallback (loud rooms,
+    /// where the voice never drops that far).
+    private static let baselineHops = 6
+    private static let quietHops = 4
+    private static let dropDb = 12.0
+
+    private func voiceDropped() -> Bool {
+        guard hopDb.count == Self.baselineHops + Self.quietHops,
+              let before = hopDb.prefix(Self.baselineHops).max() else { return false }
+        return hopDb.suffix(Self.quietHops).allSatisfy { $0 < before - Self.dropDb }
+    }
+
     private func step(_ block: [Float]) {
         let st = detector.process(block)
         let t = now()
@@ -138,7 +157,16 @@ public actor DetectionEngine: SoundEventSource {
         status.gated = st.gated
         status.top3 = st.top3.map { (label: $0.0, prob: $0.1) }
         let speech = st.hits.contains { $0.label == "speech" }
-        if status.speechActive, !speech { status.speechEnds += 1 }
+        let hop = block.reduce(0.0) { $0 + Double($1) * Double($1) } / Double(max(block.count, 1))
+        hopDb.append(dbfs(hop.squareRoot()))
+        if hopDb.count > Self.baselineHops + Self.quietHops { hopDb.removeFirst() }
+        if status.speechActive, !speech {
+            if !endedEarly { status.speechEnds += 1 }
+            endedEarly = false
+        } else if speech, !endedEarly, voiceDropped() {
+            status.speechEnds += 1
+            endedEarly = true
+        }
         status.speechActive = speech
         status.azimuthDeg = az
         statusOut.yield(status)
