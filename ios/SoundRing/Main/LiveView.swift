@@ -46,22 +46,22 @@ struct LiveView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
-                HStack {
-                    Text("Live view").font(.largeTitle.bold())
-                    Spacer()
-                    Image(systemName: "location.viewfinder")
-                        .font(.title2)
-                        .foregroundStyle(Theme.accent)
-                        .accessibilityHidden(true)
+            VStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Live view").font(.largeTitle.bold())
+                        Spacer()
+                        Image(systemName: "location.viewfinder")
+                            .font(.title2)
+                            .foregroundStyle(Theme.accent)
+                            .accessibilityHidden(true)
+                    }
+                    Text(session.summary)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.secondaryText)
                 }
-                Text(session.summary)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                FrontScale(cues: visible)
                 LivePanel(cues: visible, filter: $filter, showDistance: showDistance)
-                    .frame(height: 330)
+                    .frame(height: 380)
                 HStack(spacing: 10) {
                     ForEach(LiveFilter.allCases) { f in
                         Button(f.rawValue) { filter = f }
@@ -93,32 +93,27 @@ struct LiveSoundCard: View {
     let showDistance: Bool
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 14) {
-                Image(systemName: cue.symbol)
-                    .font(.title3)
-                    .foregroundStyle(cue.group.color)
-                    .frame(width: 46, height: 46)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(cue.group.color.opacity(0.22)))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(cue.title).font(.title3.bold())
-                    Text(cue.longDetail(showDistance: showDistance))
-                        .foregroundStyle(Theme.secondaryText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                Spacer()
-                if cue.isUrgent {
-                    Text("High priority")
-                        .font(.footnote.weight(.semibold))
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .overlay(Capsule().stroke(cue.group.color))
-                        .foregroundStyle(cue.group.color)
-                }
+        HStack(spacing: 14) {
+            Image(systemName: cue.symbol)
+                .font(.title3)
+                .foregroundStyle(cue.group.color)
+                .frame(width: 46, height: 46)
+                .background(RoundedRectangle(cornerRadius: 12).fill(cue.group.color.opacity(0.22)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(cue.title).font(.title3.bold())
+                Text(cue.longDetail(showDistance: showDistance))
+                    .foregroundStyle(Theme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            Waveform(color: cue.group.color)
-                .frame(height: 64)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.background))
+            Spacer()
+            if cue.isUrgent {
+                Text("High priority")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .overlay(Capsule().stroke(cue.group.color))
+                    .foregroundStyle(cue.group.color)
+            }
         }
         .padding(16)
         .card(radius: 20, stroke: Theme.accent.opacity(0.7))

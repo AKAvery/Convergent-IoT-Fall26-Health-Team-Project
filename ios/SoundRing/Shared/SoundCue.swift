@@ -62,12 +62,6 @@ enum CueDirection {
         return r < 0 ? r + 360 : r
     }
 
-    /// -180..180, negative = left of ahead.
-    static func signed(_ deg: Double) -> Double {
-        let n = normalized(deg)
-        return n > 180 ? n - 360 : n
-    }
-
     /// Screen point at `radius` from `center` in direction `deg` (0° up, clockwise).
     static func point(_ center: CGPoint, _ radius: CGFloat, _ deg: Double) -> CGPoint {
         let a = deg * .pi / 180

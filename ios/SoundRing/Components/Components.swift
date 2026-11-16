@@ -147,28 +147,3 @@ struct PerspectiveGrid: View {
         }
     }
 }
-
-/// Animated bars under the Live card.
-struct Waveform: View {
-    let color: Color
-    var bars = 46
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 20)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            Canvas { ctx, size in
-                let step = size.width / CGFloat(bars)
-                for i in 0..<bars {
-                    let x = CGFloat(i) * step + step / 2
-                    let center = 1 - abs(Double(i) / Double(bars - 1) - 0.5) * 1.4
-                    let wobble = 0.5 + 0.5 * sin(t * 6 + Double(i) * 0.9) * cos(t * 2.3 + Double(i) * 0.37)
-                    let h = max(2, size.height * CGFloat(max(0.08, center * wobble)))
-                    let bar = Path(roundedRect: CGRect(x: x - 1.25, y: (size.height - h) / 2, width: 2.5, height: h),
-                                   cornerRadius: 1.25)
-                    ctx.fill(bar, with: .color(color))
-                }
-            }
-        }
-        .accessibilityHidden(true)
-    }
-}
