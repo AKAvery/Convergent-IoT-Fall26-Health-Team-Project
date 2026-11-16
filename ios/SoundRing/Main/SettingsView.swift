@@ -107,10 +107,10 @@ struct SettingsView: View {
 
     private func examples(_ group: CueGroup) -> String {
         switch group {
-        case .urgent: "Sirens, alarms, car horns, glass breaking, a baby crying"
-        case .traffic: "Bike bells, doorbells"
+        case .urgent: "Sirens, alarms, car horns, glass breaking, a baby crying, your name"
+        case .traffic: "Not detected by the pins yet"
         case .speech: "People talking"
-        case .ambient: "Dogs, cats, knocks, footsteps, appliances"
+        case .ambient: "Dogs, cats, knocks, claps, footsteps, appliances"
         }
     }
 
