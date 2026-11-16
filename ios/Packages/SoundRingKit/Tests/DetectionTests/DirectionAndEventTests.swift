@@ -158,6 +158,40 @@ import Models
         await run.value
         #expect(labels.contains(.siren))
     }
+
+    /// Name alerts commit the transcript at each end of speech. A short pause gets the early
+    /// (loudness-drop) end; when the talker goes on, the end of the rest must still be reported.
+    @Test func speechEndReportedAfterPauseThenMoreTalking() async throws {
+        func tone(_ s: Double, amp: Double) -> [Int16] {
+            (0..<Int(s * 16_000)).map { Int16(amp * 32767 * sin(2 * .pi * 440 * Double($0) / 16_000)) }
+        }
+        // talk 2 s, pause 0.5 s, talk 2 s, quiet 2.5 s
+        let samples = tone(2, amp: 0.3) + tone(0.5, amp: 0.0005) + tone(2, amp: 0.3) + tone(2.5, amp: 0.0005)
+        let src = WavFileBoxSource(samples: samples, loop: false, realTime: false)
+        let engine = DetectionEngine(source: src, classifier: LoudIsSpeechClassifier(),
+                                     rules: try LabelRules.bundled())
+        let ends = Task { var n = 0; for await st in engine.statusUpdates { n = st.speechEnds }; return n }
+        let run = Task { await engine.run() }
+        src.streamAudio(from: .front)
+        src.start()
+        for await _ in engine.activeEvents {}
+        await run.value
+        #expect(await ends.value == 2)
+    }
+}
+
+/// `speech` while any 0.1 s of the 0.975 s window is loud, so it lingers like YAMNet's does.
+final class LoudIsSpeechClassifier: SoundClassifier, @unchecked Sendable {
+    let labels = ["speech"]
+    let thresholds: [Float] = [0.5]
+
+    func probs(window: [Float]) -> [Float] {
+        let loud = stride(from: 0, to: window.count, by: 1600).contains { i in
+            let chunk = window[i..<min(i + 1600, window.count)]
+            return chunk.reduce(0) { $0 + $1 * $1 } / Float(chunk.count) > 0.0025   // RMS > 0.05
+        }
+        return [loud ? 0.9 : 0]
+    }
 }
 
 /// Returns recorded probability vectors in order, one per call.

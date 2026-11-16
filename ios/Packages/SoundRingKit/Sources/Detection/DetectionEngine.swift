@@ -40,8 +40,9 @@ public actor DetectionEngine: SoundEventSource {
     private var pending: [Float] = []
     /// Loudness (dBFS) of the newest hops, for the early end-of-speech check below.
     private var hopDb: [Double] = []
-    /// The early check already reported the end of the current speech.
-    private var endedEarly = false
+    /// Set once the early check reported the end of the current speech: the loudness the voice
+    /// fell below. A hop back above it means the talker went on, so their real end is reported too.
+    private var earlyEndCeilingDb: Double?
     private var lastFrame: (box: BoxPosition, seq: UInt16)?
     private var status = DetectionStatus()
     private let t0 = Date()
@@ -138,10 +139,12 @@ public actor DetectionEngine: SoundEventSource {
     private static let quietHops = 4
     private static let dropDb = 12.0
 
-    private func voiceDropped() -> Bool {
+    /// The level the voice dropped below, or nil if it hasn't dropped.
+    private func voiceDropped() -> Double? {
         guard hopDb.count == Self.baselineHops + Self.quietHops,
-              let before = hopDb.prefix(Self.baselineHops).max() else { return false }
-        return hopDb.suffix(Self.quietHops).allSatisfy { $0 < before - Self.dropDb }
+              let before = hopDb.prefix(Self.baselineHops).max() else { return nil }
+        let ceiling = before - Self.dropDb
+        return hopDb.suffix(Self.quietHops).allSatisfy { $0 < ceiling } ? ceiling : nil
     }
 
     private func step(_ block: [Float]) {
@@ -161,11 +164,14 @@ public actor DetectionEngine: SoundEventSource {
         hopDb.append(dbfs(hop.squareRoot()))
         if hopDb.count > Self.baselineHops + Self.quietHops { hopDb.removeFirst() }
         if status.speechActive, !speech {
-            if !endedEarly { status.speechEnds += 1 }
-            endedEarly = false
-        } else if speech, !endedEarly, voiceDropped() {
+            if earlyEndCeilingDb == nil { status.speechEnds += 1 }
+            earlyEndCeilingDb = nil
+        } else if speech, let ceiling = earlyEndCeilingDb {
+            // Only a pause: talking again before the detector's speech ended.
+            if let last = hopDb.last, last >= ceiling { earlyEndCeilingDb = nil }
+        } else if speech, let ceiling = voiceDropped() {
             status.speechEnds += 1
-            endedEarly = true
+            earlyEndCeilingDb = ceiling
         }
         status.speechActive = speech
         status.azimuthDeg = az
