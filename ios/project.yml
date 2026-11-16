@@ -21,6 +21,8 @@ targets:
         product: Detection
       - package: SoundRingKit
         product: Names
+      - package: SoundRingKit
+        product: Cloud
     info:
       path: SoundRing/Info.plist
       properties:

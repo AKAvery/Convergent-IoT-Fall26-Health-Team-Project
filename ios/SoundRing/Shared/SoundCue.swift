@@ -1,3 +1,4 @@
+import Models
 import SwiftUI
 
 /// The four sound groups the screens use (Home "Today's Feed", Settings "Sounds to detect").
@@ -24,6 +25,7 @@ struct SoundCue: Identifiable, Equatable, Sendable {
     var kind: String? = nil              // e.g. "Voice", shown before the distance
     var symbol: String                   // SF Symbols name
     var group: CueGroup
+    var label: SoundLabel? = nil         // the model class; nil for cues that aren't a detected sound
     var azimuthDeg: Double               // 0° ahead, clockwise (90° right, 180° behind)
     var distanceM: Double? = nil
     var directionText: String? = nil     // overrides the computed direction, e.g. "Behind you"
