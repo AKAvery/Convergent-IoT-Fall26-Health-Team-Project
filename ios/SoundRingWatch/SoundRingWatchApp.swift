@@ -27,7 +27,7 @@ struct SoundRingWatchApp: App {
 private extension View {
     func watchPage() -> some View {
         #if os(watchOS)
-        containerBackground(Theme.background.gradient, for: .tabView)
+        containerBackground(Theme.background, for: .tabView)
         #else
         background(Theme.background)
         #endif
