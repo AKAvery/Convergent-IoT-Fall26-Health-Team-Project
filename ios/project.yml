@@ -54,6 +54,10 @@ targets:
     sources:
       - SoundRingWatch
       - SoundRing/Shared
+    dependencies:
+      # SoundRing/Shared/SoundCue.swift carries the model's SoundLabel.
+      - package: SoundRingKit
+        product: Models
     settings:
       base:
         SWIFT_VERSION: "6.0"
