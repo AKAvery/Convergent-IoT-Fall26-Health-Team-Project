@@ -43,13 +43,13 @@ struct LivePanel: View {
                     .font((compact ? Font.caption : .subheadline).weight(.semibold))
                     .foregroundStyle(Theme.text)
                     .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(Capsule().fill(Theme.fill))
+                    .background(Capsule().fill(Theme.surfaceRaised))
                 }
                 Spacer()
                 Text("\(cues.count) active")
                     .font((compact ? Font.caption : .subheadline).weight(.semibold))
                     .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(Capsule().fill(Theme.fill))
+                    .background(Capsule().fill(Theme.surfaceRaised))
             }
             .padding(compact ? 8 : 12)
         }

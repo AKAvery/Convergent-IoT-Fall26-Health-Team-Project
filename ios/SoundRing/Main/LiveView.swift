@@ -49,7 +49,6 @@ struct LiveView: View {
             VStack(spacing: 18) {
                 HStack {
                     Text("Live view").font(.largeTitle.bold())
-                        .accessibilityAddTraits(.isHeader)
                     Spacer()
                     Image(systemName: "location.viewfinder")
                         .font(.title2)
@@ -71,7 +70,6 @@ struct LiveView: View {
                             .background(Capsule().fill(filter == f ? Theme.accent : .clear))
                             .overlay(Capsule().stroke(filter == f ? .clear : Theme.line))
                             .foregroundStyle(filter == f ? Theme.onAccent : Theme.secondaryText)
-                            .accessibilityAddTraits(filter == f ? .isSelected : [])
                     }
                 }
                 .buttonStyle(.plain)
@@ -90,7 +88,6 @@ struct LiveView: View {
     }
 }
 
-/// The most important sound right now: what it is, how far and which way.
 struct LiveSoundCard: View {
     let cue: SoundCue
     let showDistance: Bool

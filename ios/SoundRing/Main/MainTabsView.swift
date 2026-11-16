@@ -14,13 +14,9 @@ enum MainTab: String, CaseIterable, Identifiable {
     }
 }
 
-/// The four tabs with the design's custom tab bar (accent line above the selected tab).
+/// The four tabs with the design's custom tab bar (cyan line above the selected tab).
 struct MainTabsView: View {
-    @State private var tab: MainTab
-
-    init(initial: MainTab = .home) {
-        _tab = State(initialValue: initial)
-    }
+    @State private var tab: MainTab = .home
 
     var body: some View {
         TabView(selection: $tab) {
@@ -53,7 +49,6 @@ struct MainTabBar: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(t.rawValue)
                 .accessibilityAddTraits(t == tab ? .isSelected : [])
             }
         }
