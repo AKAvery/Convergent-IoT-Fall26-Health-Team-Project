@@ -21,6 +21,17 @@ public struct DetectionStatus: Sendable {
     public init() {}
 }
 
+/// How the engine uses the boxes' audio.
+public enum DetectionMode: Sendable {
+    /// One audio stream, from the loudest box, one detector. Cheapest on Bluetooth and battery;
+    /// overlapping sounds share one arrow (the original design, docs/body-boxes-plan.md).
+    case loudestBox
+    /// All 4 boxes stream, each with its own detector; every sound gets its own arrow and level.
+    /// Most accurate for overlapping sounds (docs/multi-sound.md); about 4x the Bluetooth and
+    /// model work.
+    case allBoxes
+}
+
 /// Lane 2 end to end: `BoxSource` (levels + decoded audio) -> direction, loudest-box switching,
 /// YAMNet + head through `Detector`, event tracking -> `SoundEvent` snapshots.
 public actor DetectionEngine: SoundEventSource {
@@ -35,6 +46,12 @@ public actor DetectionEngine: SoundEventSource {
     private let statusOut: AsyncStream<DetectionStatus>.Continuation
     private let source: any BoxSource & Sendable
     private let detector: Detector
+    private let mode: DetectionMode
+    // All-boxes mode only: one detector, audio buffer, packet counter and newest result per box.
+    private let boxDetectors: [BoxPosition: Detector]
+    private var pendingByBox: [BoxPosition: [Float]] = [:]
+    private var lastSeqByBox: [BoxPosition: UInt16] = [:]
+    private var observations: [BoxPosition: BoxObservation] = [:]
     private var direction: DirectionTracker
     private var tracker: EventTracker
     private var pending: [Float] = []
@@ -52,9 +69,14 @@ public actor DetectionEngine: SoundEventSource {
 
     public init(source: any BoxSource & Sendable, classifier: any SoundClassifier,
                 params: DetectorParams = DetectorParams(), rules: LabelRules,
-                direction: DirectionConfig = DirectionConfig()) {
+                direction: DirectionConfig = DirectionConfig(), mode: DetectionMode = .loudestBox) {
         self.source = source
+        self.mode = mode
         self.detector = Detector(params: params, classifier: classifier, preset: "all")
+        // The detectors share one classifier: the engine is an actor, so they never run at once.
+        self.boxDetectors = Dictionary(uniqueKeysWithValues: BoxPosition.allCases.map {
+            ($0, Detector(params: params, classifier: classifier, preset: "all"))
+        })
         self.direction = DirectionTracker(config: direction)
         self.tracker = EventTracker(rules: rules)
         (activeEvents, eventsOut) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -64,6 +86,9 @@ public actor DetectionEngine: SoundEventSource {
 
     /// Runs until the task is cancelled or the source finishes.
     public func run() async {
+        // All-boxes mode: ask every box for audio up front. A box that connects later starts as
+        // soon as its audio subscription is on.
+        if mode == .allBoxes { source.streamAudio(from: Set(BoxPosition.allCases)) }
         await withTaskGroup(of: Void.self) { group in
             group.addTask { for await level in self.source.levels { await self.handle(level) } }
             group.addTask { for await frame in self.source.frames { await self.handle(frame) } }
@@ -94,7 +119,9 @@ public actor DetectionEngine: SoundEventSource {
             lastLevelLog = t
             Self.log.debug("levels \(self.levelsLine(at: t), privacy: .public) | streaming \(self.status.streamingBox?.rawValue ?? "-", privacy: .public)")
         }
-        if let box = direction.updateStreamingBox(at: t) {
+        if mode == .allBoxes {
+            status.streamingBox = direction.loudestBox(at: t)?.box   // the lead box; every box streams
+        } else if let box = direction.updateStreamingBox(at: t) {
             Self.log.info("switch audio to \(box.rawValue, privacy: .public): \(self.levelsLine(at: t), privacy: .public)")
             source.streamAudio(from: box)
             status.streamingBox = box
@@ -109,6 +136,7 @@ public actor DetectionEngine: SoundEventSource {
     }
 
     private func handle(_ frame: SoundFrame) {
+        if mode == .allBoxes { handleAllBoxes(frame); return }
         if let last = lastFrame, last.box == frame.box {
             let missed = BLESequence.missed(previous: last.seq, current: frame.seq)
             status.framesMissed += missed
@@ -156,10 +184,20 @@ public actor DetectionEngine: SoundEventSource {
         status.levelDb = st.levelDb
         status.gated = st.gated
         status.top3 = st.top3.map { (label: $0.0, prob: $0.1) }
-        let speech = st.hits.contains { $0.label == "speech" }
-        let hop = block.reduce(0.0) { $0 + Double($1) * Double($1) } / Double(max(block.count, 1))
-        hopDb.append(dbfs(hop.squareRoot()))
-        if hopDb.count > Self.baselineHops + Self.quietHops { hopDb.removeFirst() }
+        trackSpeech(speech: st.hits.contains { $0.label == "speech" }, hop: block)
+        status.azimuthDeg = az
+        statusOut.yield(status)
+    }
+
+    /// Speech start/stop bookkeeping. `hop` is the newest audio of the stream the end-of-speech
+    /// loudness check should watch; nil leaves that history alone (all-boxes mode passes only the
+    /// lead box's audio).
+    private func trackSpeech(speech: Bool, hop: [Float]?) {
+        if let hop {
+            let power = hop.reduce(0.0) { $0 + Double($1) * Double($1) } / Double(max(hop.count, 1))
+            hopDb.append(dbfs(power.squareRoot()))
+            if hopDb.count > Self.baselineHops + Self.quietHops { hopDb.removeFirst() }
+        }
         if status.speechActive, !speech {
             if !endedEarly { status.speechEnds += 1 }
             endedEarly = false
@@ -168,7 +206,63 @@ public actor DetectionEngine: SoundEventSource {
             endedEarly = true
         }
         status.speechActive = speech
-        status.azimuthDeg = az
+    }
+
+    // MARK: - All-boxes mode (docs/multi-sound.md)
+
+    /// Fresh result of a box newer than this counts; older = the box went quiet or dropped out.
+    private static let observationMaxAgeS = SourceFusion.defaultMaxAgeS
+
+    /// Audio from any box goes into that box's own buffer and detector.
+    private func handleAllBoxes(_ frame: SoundFrame) {
+        let box = frame.box
+        if let prev = lastSeqByBox[box] {
+            let missed = BLESequence.missed(previous: prev, current: frame.seq)
+            status.framesMissed += missed
+            if missed > 0, missed <= maxFill {
+                pendingByBox[box, default: []].append(contentsOf: repeatElement(0, count: missed * frame.samples.count))
+            }
+        }
+        lastSeqByBox[box] = frame.seq
+        // Name alerts listen to one stream: the lead (loudest) box, like the single-stream mode.
+        if status.streamingBox == nil || status.streamingBox == box { audioOut.yield(frame) }
+        status.framesReceived += 1
+        pendingByBox[box, default: []].append(contentsOf: frame.samples.map { Float($0) / 32768 })
+
+        guard let det = boxDetectors[box] else { return }
+        let hop = det.hopSamples
+        while (pendingByBox[box]?.count ?? 0) >= hop {
+            let block = Array(pendingByBox[box, default: []].prefix(hop))
+            pendingByBox[box]?.removeFirst(hop)
+            stepAllBoxes(block, from: box)
+        }
+    }
+
+    /// One 0.1 s hop from one box: that box's detector runs, then the four boxes' newest results
+    /// are fused into one `Sighting` per sound, each with its own direction.
+    private func stepAllBoxes(_ block: [Float], from box: BoxPosition) {
+        guard let det = boxDetectors[box] else { return }
+        let st = det.process(block)
+        let t = now()
+        observations[box] = BoxObservation(hits: st.hits, probs: st.probs, at: t, levelDb: st.levelDb,
+                                           gated: st.gated, top3: st.top3)
+        let sightings = SourceFusion.fuse(observations: observations, names: det.names,
+                                          direction: direction, at: t, maxAgeS: Self.observationMaxAgeS)
+        if let snapshot = tracker.update(sightings: sightings, now: Date()) {
+            eventsOut.yield(snapshot)
+        }
+        direction.freezeQuietLevels(tracker.hasActiveUrgent)
+
+        // The status line follows the box that hears the most right now.
+        let lead = observations.values
+            .filter { t - $0.at <= Self.observationMaxAgeS && !$0.gated }
+            .max { $0.levelDb < $1.levelDb }
+        status.gated = lead == nil
+        status.levelDb = lead?.levelDb ?? st.levelDb
+        status.top3 = (lead?.top3 ?? st.top3).map { (label: $0.0, prob: $0.1) }
+        let primary = direction.loudestBox(at: t)?.box ?? box
+        trackSpeech(speech: sightings.contains { $0.hit.label == "speech" }, hop: box == primary ? block : nil)
+        status.azimuthDeg = sightings.first?.azimuth ?? direction.azimuth(at: t)
         statusOut.yield(status)
     }
 }

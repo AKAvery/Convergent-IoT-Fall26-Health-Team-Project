@@ -16,7 +16,7 @@ public final class WavFileBoxSource: BoxSource, @unchecked Sendable {
     private let realTime: Bool
     private let secondsPerTurn: Double
     private let lock = NSLock()
-    private var audioBox: BoxPosition?
+    private var audioBoxes: Set<BoxPosition> = []
     private var task: Task<Void, Never>?
     private let levelOut: AsyncStream<BoxLevel>.Continuation
     private let frameOut: AsyncStream<SoundFrame>.Continuation
@@ -36,7 +36,12 @@ public final class WavFileBoxSource: BoxSource, @unchecked Sendable {
     }
 
     public func streamAudio(from box: BoxPosition) {
-        lock.withLock { audioBox = box }
+        lock.withLock { audioBoxes = [box] }
+    }
+
+    /// The mock plays the same clip on every selected box (each real box would hear its own mix).
+    public func streamAudio(from boxes: Set<BoxPosition>) {
+        lock.withLock { audioBoxes = boxes }
     }
 
     public func start() {
@@ -69,7 +74,7 @@ public final class WavFileBoxSource: BoxSource, @unchecked Sendable {
             let pkt = IMAADPCM.encodePacket(block, seq: seq, state: &state)
             let decoded = IMAADPCM.decode(pkt)
             for s in block { windowPeak = max(windowPeak, abs(Int32(s))) }
-            if let box = lock.withLock({ audioBox }) {
+            for box in lock.withLock({ audioBoxes }).sorted(by: { $0.rawValue < $1.rawValue }) {
                 frameOut.yield(SoundFrame(box: box, seq: seq, receivedAt: Date(), samples: decoded))
             }
             seq &+= 1

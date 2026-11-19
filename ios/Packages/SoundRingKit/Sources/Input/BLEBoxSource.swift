@@ -65,7 +65,7 @@ public final class BLEBoxSource: NSObject, BoxSource, @unchecked Sendable {
     private var unnamed: [UUID: CBPeripheral] = [:]   // connecting to learn the name
     private var control: [BoxPosition: CBCharacteristic] = [:]
     private var audioReady: Set<BoxPosition> = []
-    private var wantedAudioBox: BoxPosition?
+    private var wantedAudioBoxes: Set<BoxPosition> = []
     private var lastLevelSeq: [BoxPosition: UInt16] = [:]
     private var lastAudioSeq: [BoxPosition: UInt16] = [:]
     private var snapshot = BLESnapshot()
@@ -104,8 +104,8 @@ public final class BLEBoxSource: NSObject, BoxSource, @unchecked Sendable {
     public func stop() {
         queue.async { [self] in
             running = false
-            if let box = wantedAudioBox { write(.stopAudio, to: box) }
-            wantedAudioBox = nil
+            for box in wantedAudioBoxes { write(.stopAudio, to: box) }
+            wantedAudioBoxes = []
             central?.stopScan()
             for p in peripherals.values { central?.cancelPeripheralConnection(p) }
             ticker?.cancel(); ticker = nil
@@ -115,24 +115,28 @@ public final class BLEBoxSource: NSObject, BoxSource, @unchecked Sendable {
     /// Detection calls this when the loudest box changes: that box gets `control` = 1, the box
     /// that was streaming gets 0.
     public func streamAudio(from box: BoxPosition) {
-        queue.async { [self] in
-            guard wantedAudioBox != box else { return }
-            if let old = wantedAudioBox { write(.stopAudio, to: old) }
-            wantedAudioBox = box
-            if audioReady.contains(box) { write(.startAudio, to: box) }
-            publish()
-        }
+        queue.async { [self] in setWantedAudio([box]) }
+    }
+
+    /// All-boxes detection: every box in the set streams at once (each box's `control` = 1), the
+    /// rest get 0. Boxes that connect later start as soon as their `audio` subscription is on.
+    public func streamAudio(from boxes: Set<BoxPosition>) {
+        queue.async { [self] in setWantedAudio(boxes) }
     }
 
     public func stopAudio() {
-        queue.async { [self] in
-            if let old = wantedAudioBox { write(.stopAudio, to: old) }
-            wantedAudioBox = nil
-            publish()
-        }
+        queue.async { [self] in setWantedAudio([]) }
     }
 
     // MARK: - queue-only helpers
+
+    private func setWantedAudio(_ boxes: Set<BoxPosition>) {
+        guard wantedAudioBoxes != boxes else { return }
+        for old in wantedAudioBoxes.subtracting(boxes) { write(.stopAudio, to: old) }
+        for new in boxes.subtracting(wantedAudioBoxes) where audioReady.contains(new) { write(.startAudio, to: new) }
+        wantedAudioBoxes = boxes
+        publish()
+    }
 
     private func scanIfNeeded() {
         guard running, let central, central.state == .poweredOn else { return }
@@ -331,7 +335,7 @@ extension BLEBoxSource: CBPeripheralDelegate {
               characteristic.isNotifying else { return }
         audioReady.insert(box)
         // Start audio only once the subscription is on, or the first packets are dropped by the box.
-        write(wantedAudioBox == box ? .startAudio : .stopAudio, to: box)
+        write(wantedAudioBoxes.contains(box) ? .startAudio : .stopAudio, to: box)
         publish()
     }
 

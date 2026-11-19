@@ -24,6 +24,19 @@ public struct LabelRules: Sendable {
     }
 }
 
+/// A detected sound plus where it is and how loud, as seen on one update.
+public struct Sighting: Sendable {
+    public var hit: Hit
+    public var azimuth: Float?
+    public var levelDb: Float
+
+    public init(hit: Hit, azimuth: Float?, levelDb: Float) {
+        self.hit = hit
+        self.azimuth = azimuth
+        self.levelDb = levelDb
+    }
+}
+
 /// Turns the detector's per-update hits into `SoundEvent`s with a start, updates and a stop.
 public struct EventTracker: Sendable {
     /// A sound counts as stopped after this long without a hit (the detector re-fires every 0.1 s
@@ -47,10 +60,17 @@ public struct EventTracker: Sendable {
 
     public init(rules: LabelRules) { self.rules = rules }
 
-    /// One detector update. Returns the new snapshot when anything changed, else nil.
+    /// One detector update where every hit shares one direction and level (one audio stream).
+    /// Returns the new snapshot when anything changed, else nil.
     public mutating func update(hits: [Hit], azimuth: Float?, levelDb: Float, now: Date) -> [SoundEvent]? {
+        update(sightings: hits.map { Sighting(hit: $0, azimuth: azimuth, levelDb: levelDb) }, now: now)
+    }
+
+    /// One update where each sound has its own direction and level (all-boxes detection).
+    public mutating func update(sightings: [Sighting], now: Date) -> [SoundEvent]? {
         var changed = false
-        for hit in hits {
+        for sighting in sightings {
+            let hit = sighting.hit, azimuth = sighting.azimuth, levelDb = sighting.levelDb
             guard let label = SoundLabel(rawValue: hit.label) else { continue }
             if var e = active[label] {
                 let p = peak[label].map { max(levelDb, $0.db - peakDecayDbPerS * Float(now.timeIntervalSince($0.at))) } ?? levelDb

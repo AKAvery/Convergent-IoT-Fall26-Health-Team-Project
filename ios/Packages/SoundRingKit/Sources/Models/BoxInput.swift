@@ -40,4 +40,13 @@ public protocol BoxSource {
     var levels: AsyncStream<BoxLevel> { get }
     var frames: AsyncStream<SoundFrame> { get }
     func streamAudio(from box: BoxPosition)   // Lane 2 calls this when the loudest box changes
+    /// Several boxes stream audio at once (all-boxes detection: every box gets its own detector).
+    /// Boxes not in the set stop. Sources that can only stream one box keep the default below.
+    func streamAudio(from boxes: Set<BoxPosition>)
+}
+
+extension BoxSource {
+    public func streamAudio(from boxes: Set<BoxPosition>) {
+        if let box = boxes.min(by: { $0.rawValue < $1.rawValue }) { streamAudio(from: box) }
+    }
 }

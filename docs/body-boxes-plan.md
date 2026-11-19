@@ -79,9 +79,14 @@ and stops triggering. That's mostly what we want.
 | A very loud sound from behind reaches every box | Fine. BACK still hears it loudest (body shadow), so the arrow still points back. | Nothing |
 | **Auto-gain** on a mic | Each box turns its own volume up or down, so the comparison lies | **Turn auto-gain off.** Same fixed gain on all 4 boxes. This is the most important rule. |
 | **Clipping** (sound so loud every mic maxes out) | Every box reads "max," so there's no winner | Set gain so a car horn at 1 m doesn't max out. Each box flags clipped frames; if several clip, the one that clipped most wins. |
-| Two sounds at once (truck behind, dog in front) | The loud one drowns out the quiet one | Show the **loudest** sound only. The next one shows when it fades. |
+| Two sounds at once (truck behind, dog in front) | The loud one drowns out the quiet one | Default mode shows the **loudest** sound only. **All-boxes mode** (`DetectionMode.allBoxes`) gives each sound its own arrow: see [`multi-sound.md`](multi-sound.md). |
 
-## Inference: one box at a time
+## Inference: one box at a time (default mode)
+
+> The app can instead run in **all-boxes mode**: every box streams and has its own detector, so
+> overlapping sounds each keep their own arrow. Trade-off: about 4x the Bluetooth and model work.
+> See [`multi-sound.md`](multi-sound.md). The rest of this section describes the default mode.
+
 
 Run YAMNet on the **loudest box only**, not all 4.
 

@@ -129,6 +129,34 @@ public struct DirectionTracker: Sendable {
         return (now, now - peak)
     }
 
+    /// Direction and level of ONE sound class when several sounds play at once (all-boxes
+    /// detection). `evidence` is how strongly each box heard this class, from that box's own
+    /// detector (any non-negative score, e.g. the squared class probability; 0 or missing = didn't
+    /// hear it).
+    ///
+    /// Same tug of war as `azimuth(at:)`, but each box's pull is its loudness scaled by its
+    /// evidence for this class relative to the box with the most evidence. A box drowned by some
+    /// other sound reads loud but has little evidence for this one, so it barely pulls. Two sounds
+    /// from different sides each get their own arrow; for a single sound heard equally everywhere
+    /// the scaling is 1 and this equals `azimuth(at:)`.
+    ///
+    /// `levelDb` is the loudness of the box with the most evidence. `azimuthDeg` is nil when that
+    /// box isn't clearly above its quiet level or fewer than 2 boxes are reporting.
+    public func classDirection(evidence: [BoxPosition: Float], at t: Double) -> (azimuthDeg: Float?, levelDb: Float?) {
+        guard let (anchor, maxEvidence) = evidence.filter({ $0.value > 0 }).max(by: { $0.value < $1.value }),
+              let anchorDb = loudness(anchor, at: t) else { return (nil, nil) }
+        let reporting = BoxPosition.allCases.filter { loudness($0, at: t) != nil }
+        guard reporting.count >= 2, anchorDb >= config.minLoudnessDb else { return (nil, anchorDb) }
+        var pull: [BoxPosition: Float] = [:]
+        for b in reporting { pull[b] = (loudness(b, at: t) ?? 0) * max(0, evidence[b] ?? 0) / maxEvidence }
+        let sideways = (pull[.right] ?? 0) - (pull[.left] ?? 0)
+        let forward = (pull[.front] ?? 0) - (pull[.back] ?? 0)
+        if (sideways * sideways + forward * forward).squareRoot() < config.minVectorDb {
+            return (anchor.facingDeg, anchorDb)
+        }
+        return (Azimuth.normalized(atan2(sideways, forward) * 180 / .pi), anchorDb)
+    }
+
     /// The box that should stream audio. Two lanes:
     /// - Fast: a sudden sound (see `onsetJumpDb`) switches at once and holds for `onsetLockS`.
     /// - Slow: another box's 1 s average louder by `switchMarginDb` for `switchHoldS`, and at

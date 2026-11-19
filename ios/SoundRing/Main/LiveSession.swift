@@ -90,7 +90,9 @@ final class LiveSession {
                 source = s
                 s.start()
             }
-            let engine = DetectionEngine(source: source, classifier: classifier, rules: rules)
+            // .allBoxes: every box streams and gets its own detector, so overlapping sounds each
+            // keep their own arrow (docs/multi-sound.md). Use .loudestBox to save Bluetooth/battery.
+            let engine = DetectionEngine(source: source, classifier: classifier, rules: rules, mode: .allBoxes)
             tasks.append(Task.detached { await engine.run() })
             tasks.append(Task { [weak self] in
                 for await snapshot in engine.activeEvents {
